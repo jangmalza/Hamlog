@@ -15,7 +15,7 @@ Node.js(Express) 백엔드와 React(Vite) 프론트엔드로 구성된 기술 �
 - **State**: Zustand
 - **Editor**: Tiptap (Headless WYSIWYG)
 - **Backend**: Node.js(Express), JWT(Auth cookie)
-- **Infra**: Docker, GitHub Actions, Self-Hosted Runner(옵션)
+- **Infra**: Docker, GitHub Actions(빌드·검증), 운영 서버 systemd 배포 에이전트
 
 ## Key Features
 - **Admin 글쓰기/관리**: Tiptap 기반 편집, 이미지 업로드/붙여넣기, 미리보기
@@ -275,8 +275,8 @@ docker compose up -d --build
 운영 컨테이너는 두 값이 없으면 시작하지 않습니다.
 컨테이너 프로세스는 root가 아닌 Node 사용자로 실행되며, 호스트의 4000번 포트는 기본적으로
 `127.0.0.1`에만 열립니다. 같은 호스트의 reverse proxy가 아닌 곳에서 직접 연결해야 하는 명확한
-이유가 있을 때만 `.env`의 `HAMLOG_BIND_ADDRESS`를 변경합니다. GitHub Actions 운영 배포는 같은
-이름의 Repository Variable을 사용합니다.
+이유가 있을 때만 `.env`의 `HAMLOG_BIND_ADDRESS`를 변경합니다. 운영 배포 에이전트는
+`/etc/hamlog/deploy.env`의 같은 이름 값을 사용합니다.
 Compose는 앱 실행 전에 마운트 권한을 제한적으로 준비합니다. 호스트 기본 그룹 ID가 1000이 아니면
 `.env`의 `HAMLOG_DATA_GID`를 `id -g` 결과로 설정합니다.
 
@@ -290,19 +290,49 @@ Compose는 앱 실행 전에 마운트 권한을 제한적으로 준비합니다
 여러 호스트가 동시에 쓰는 구성에는 SQLite/PostgreSQL 같은 공유 데이터베이스를 사용해야 합니다.
 
 ## CI/CD (GitHub Actions)
-`.github/workflows/docker-deploy.yml`
-- `main` push 시 Docker 이미지를 빌드하여 GHCR에 업로드
-- Self-Hosted Runner가 운영 서버에서 최신 이미지를 pull/run (포트 4000)
-- 배포 전 `$HOME/hamlog-data`를 `$HOME/hamlog-backups`에 백업하고 30일간 보관
-- 매일 03:17(KST)에 같은 백업을 실행하고 30일간 보관
-- 운영 데이터 무결성, 압축 목록, SHA-256 재검증 중 하나라도 실패하면 백업과 배포를 중단
-- 새 컨테이너의 로컬 및 `SITE_URL` 공개 헬스 응답에서 커밋 버전을 확인
-- 헬스체크 실패 시 직전 Docker 이미지로 자동 롤백
-- 컨테이너 로그는 파일당 10MB, 최대 3개로 회전
+`.github/workflows/docker-deploy.yml`은 GitHub 호스티드 러너에서만 실행됩니다. 운영 서버에는
+GitHub runner가 없으며, 저장소의 어떤 워크플로나 PR도 운영 서버에서 명령을 실행할 수 없습니다.
+- `main` push 시 테스트·E2E·Docker 스모크 테스트를 통과한 이미지만 GHCR에 `latest`와 `sha-<커밋>`으로 업로드
+- 이미지 업로드 후 공개 헬스 API가 새 커밋 버전을 보고할 때까지 기다려 배포 반영을 확인(최대 약 23분)
 - GitHub 호스티드 러너가 15분마다 홈·헬스 API를 외부에서 점검
 
 외부 점검 주소를 바꾸려면 Repository Variable `PUBLIC_SITE_URL`을 설정합니다.
 미설정 시 `https://tech.hamwoo.co.kr`을 사용합니다.
+
+### 운영 서버 배포 에이전트
+
+운영 서버의 systemd 타이머가 GHCR의 공개 이미지를 직접 확인해 배포합니다(`scripts/server-deploy.sh`).
+- `hamlog-deploy.timer`: 2분마다 `latest` 이미지를 받아 실행 중인 컨테이너와 다를 때만 배포
+- 배포 전 `$HOME/hamlog-data`를 `$HOME/hamlog-backups`에 검증된 백업으로 남기고 30일간 보관
+- 새 컨테이너의 로컬 및 `HAMLOG_PUBLIC_URL` 공개 헬스 응답에서 커밋 버전과 데이터 쓰기를 확인
+- 헬스체크 실패 시 직전 컨테이너로 자동 롤백하고, 그 이미지는 새 이미지가 올라올 때까지 다시 시도하지 않음
+- `hamlog-backup.timer`: 매일 03:17(KST)에 같은 백업을 실행하고 30일간 보관
+- 배포와 백업은 같은 잠금을 사용하여 겹치지 않으며, 운영 데이터 무결성·압축 목록·SHA-256 재검증 중
+  하나라도 실패하면 백업과 배포를 중단
+- 비밀값은 서버의 `/etc/hamlog/hamlog.env`(root 소유, 배포 사용자 읽기 전용)에서 `docker --env-file`로
+  전달하므로 프로세스 목록에 나타나지 않음
+- 컨테이너 로그는 파일당 10MB, 최대 3개로 회전
+
+설치·갱신은 운영 서버에서 저장소를 받은 뒤 데이터 소유 사용자(Docker 그룹)를 지정해 실행합니다.
+
+```bash
+sudo bash scripts/install-server-agent.sh <배포-사용자>
+```
+
+설치 스크립트는 `/opt/hamlog/bin`에 스크립트를 복사하고(root 소유), 없을 때만
+`/etc/hamlog/deploy.env`와 `/etc/hamlog/hamlog.env`를 만듭니다. `hamlog.env`는 실행 중인 `hamlog`
+컨테이너의 설정에서 애플리케이션 값만 옮겨 기존 비밀값을 그대로 이어받습니다. 두 파일은
+`KEY=VALUE` 형식이며 따옴표를 쓰지 않습니다. 배포 알림을 받으려면 `deploy.env`에 `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID`를 지정합니다. 같은 실패는 한 번만 알립니다.
+
+```bash
+journalctl -u hamlog-deploy -n 50        # 최근 배포 확인
+systemctl list-timers 'hamlog-*'          # 다음 실행 시각
+sudo systemctl start hamlog-backup        # 즉시 백업
+```
+
+GHCR 패키지 `ghcr.io/jangmalza/hamlog`는 공개로 두어 서버에 레지스트리 자격 증명을 두지 않습니다.
+이미지에는 공개 저장소와 같은 코드와 빌드 결과만 있고 비밀값은 없습니다.
 
 ## Backup and Restore
 
@@ -320,7 +350,8 @@ BACKUP_RETENTION_DAYS=30 \
 
 복구는 기존 데이터 위에 압축을 덮어풀지 않고 아래 스크립트로 수행합니다. 백업 이후 생긴 글 파일이나
 영구삭제 요청이 남으면 복구한 글이 다시 삭제될 수 있으므로 `data/`와 `uploads/`를 함께 교체합니다.
-실행 전 같은 서버의 배포·예약 백업 작업을 중단하여 복구 중 다른 작업이 데이터를 변경하지 않게 합니다.
+실행 전 같은 서버의 배포·예약 백업 작업을 중단하여 복구 중 다른 작업이 데이터를 변경하지 않게 합니다
+(`sudo systemctl stop hamlog-deploy.timer hamlog-backup.timer`, 복구 후 `start`).
 
 ```bash
 bash scripts/restore-data.sh \
@@ -354,7 +385,7 @@ Docker 없이 복구할 때는 모든 서버 프로세스를 직접 중지한 �
 `$HOME/hamlog-backups`를 별도의 암호화된 오브젝트 스토리지나 백업 서버로 동기화해야 합니다.
 
 저장소는 특정 외부 공급자로 데이터를 보내지 않습니다. 오프사이트 저장소와 자격 증명을 선택한 뒤,
-self-hosted runner에 아래 계약을 따르는 실행 파일을 설치하고 Repository Variable
+운영 서버에 아래 계약을 따르는 실행 파일을 설치하고 `/etc/hamlog/deploy.env`의
 `HAMLOG_BACKUP_HOOK`에 그 **절대 경로**를 지정할 수 있습니다.
 
 ```text
