@@ -1,7 +1,7 @@
-import { readFile, mkdir, readdir, unlink } from 'fs/promises';
+import { readFile, mkdir, readdir, unlink, open, stat } from 'fs/promises';
 import path from 'path';
 import { postsFilePath, dataDir, postsDir } from '../config/paths.js';
-import { writeJsonAtomic } from '../utils/fsUtils.js';
+import { writeFileAtomic, writeJsonAtomic } from '../utils/fsUtils.js';
 import { readPostDeletionIntents } from './postDeletionModel.js';
 import {
     normalizeContentJson,
@@ -28,7 +28,18 @@ function getPostFilePath(slug) {
     return postPath;
 }
 
-function normalizePost(post) {
+// Rendering contentJson dominates normalization. HTML is kept for the content
+// seen by the latest full pass over the posts, so unchanged posts skip it.
+let renderedHtmlByContent = new Map();
+
+function renderContentHtml(contentJson, rendered) {
+    const key = JSON.stringify(contentJson);
+    const html = rendered.get(key) ?? renderedHtmlByContent.get(key) ?? renderContentJsonToHtml(contentJson);
+    rendered.set(key, html);
+    return html;
+}
+
+function normalizePost(post, rendered = renderedHtmlByContent) {
     if (!post || typeof post !== 'object') return post;
     const { readingTime, ...postWithoutReadingTime } = post;
     void readingTime;
@@ -37,7 +48,7 @@ function normalizePost(post) {
 
     if (hasContentJsonContent(contentJson)) {
         try {
-            contentHtml = renderContentJsonToHtml(contentJson) || undefined;
+            contentHtml = renderContentHtml(contentJson, rendered) || undefined;
         } catch (error) {
             console.error(`[PostModel] Failed to render contentJson for "${post.slug}":`, error);
         }
@@ -83,39 +94,116 @@ async function backfillLegacyContentJson(posts) {
     }
 }
 
-/**
- * Reads all posts. 
- * For performance, we still use posts.json as a primary index/cache,
- * but each write updates both the index and individual files.
- */
-export async function readPosts() {
-    let posts = [];
+// Normalized posts.json entries: `json` is the stored text of one post and
+// `post` is what readPosts returns for it. writePosts refreshes the cache inside
+// the data store lock; the file signature also catches index changes made
+// outside writePosts (recovery in another process, restore tooling).
+let indexCache = null;
+
+const POST_FILE_READ_BATCH = 32;
+
+const toIndexEntry = (json, rendered) => ({ json, post: normalizePost(JSON.parse(json), rendered) });
+
+const fileSignature = (stats) => `${stats.ino}:${stats.size}:${stats.mtimeNs}:${stats.ctimeNs}`;
+
+async function readIndexSignature() {
     try {
-        const raw = await readFile(postsFilePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) posts = parsed;
+        return fileSignature(await stat(postsFilePath, { bigint: true }));
+    } catch (error) {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    }
+}
+
+async function loadIndex() {
+    let handle;
+    try {
+        handle = await open(postsFilePath, 'r');
     } catch (error) {
         if (error.code !== 'ENOENT') throw error;
+        return { signature: null, entries: [] };
     }
-    const pending = await readPostDeletionIntents();
-    const pendingIds = new Set(pending.map(post => post.id));
-    return [...posts.filter(post => !pendingIds.has(post.id)), ...pending].map(normalizePost);
+
+    try {
+        // Stat the open handle so the signature always describes the text read.
+        const signature = fileSignature(await handle.stat({ bigint: true }));
+        const parsed = JSON.parse(await handle.readFile('utf8'));
+        const rendered = new Map();
+        const entries = (Array.isArray(parsed) ? parsed : [])
+            .map(post => toIndexEntry(JSON.stringify(post, null, 2), rendered));
+        renderedHtmlByContent = rendered;
+        return { signature, entries };
+    } finally {
+        await handle.close();
+    }
+}
+
+async function readIndexPosts() {
+    let index = indexCache;
+    if (!index || index.signature !== await readIndexSignature()) {
+        const loaded = await loadIndex();
+        // Keep a newer index cached by a write that finished during this load.
+        if (indexCache === index) indexCache = loaded;
+        index = loaded;
+    }
+    // Callers may modify what they receive; the cached posts must stay intact.
+    return index.entries.map(entry => structuredClone(entry.post));
+}
+
+async function readStoredPostFile(postPath) {
+    try {
+        return await readFile(postPath, 'utf8');
+    } catch {
+        // Unreadable or missing: rewriting it is the only way to know it is current.
+        return null;
+    }
 }
 
 /**
- * Writes all posts to the index and individual files.
+ * Reads all posts from the posts.json index, with posts whose permanent
+ * deletion is in progress taken from their deletion intents.
+ */
+export async function readPosts() {
+    const posts = await readIndexPosts();
+    const pending = await readPostDeletionIntents();
+    const pendingIds = new Set(pending.map(post => post.id));
+    return [...posts.filter(post => !pendingIds.has(post.id)), ...pending.map(post => normalizePost(post))];
+}
+
+/**
+ * Writes all posts to the index, then rewrites only the individual files
+ * whose stored text differs from the new version.
  */
 export async function writePosts(posts) {
-    const normalized = posts.map(normalizePost);
+    const rendered = new Map();
+    const normalized = posts.map(post => normalizePost(post, rendered));
+    const previousEntries = new Map(indexCache?.entries.map(entry => [entry.json, entry]));
+    const entries = normalized.map((post) => {
+        const json = JSON.stringify(post, null, 2);
+        return previousEntries.get(json) ?? toIndexEntry(json, rendered);
+    });
+    renderedHtmlByContent = rendered;
 
     // 1. Update Index
     await writeJsonAtomic(postsFilePath, normalized);
+    const signature = await readIndexSignature();
+    indexCache = { signature, entries };
 
-    // 2. Update individual files
+    // 2. Update individual files. Comparing with the files on disk, not with the
+    // previous index, also repairs files left stale by an interrupted write.
     await mkdir(postsDir, { recursive: true });
-    for (const post of normalized) {
-        const postPath = getPostFilePath(post.slug);
-        await writeJsonAtomic(postPath, post);
+    // A later post wins a shared slug, as it did when every file was rewritten.
+    const jsonByPath = new Map();
+    normalized.forEach((post, index) => jsonByPath.set(getPostFilePath(post.slug), entries[index].json));
+    const postFiles = [...jsonByPath];
+    for (let start = 0; start < postFiles.length; start += POST_FILE_READ_BATCH) {
+        const batch = postFiles.slice(start, start + POST_FILE_READ_BATCH);
+        const stored = await Promise.all(batch.map(([postPath]) => readStoredPostFile(postPath)));
+        for (const [index, [postPath, json]] of batch.entries()) {
+            if (stored[index] !== json) {
+                await writeFileAtomic(postPath, json);
+            }
+        }
     }
 
     // 3. Cleanup deleted posts individual files
@@ -168,8 +256,9 @@ export async function ensurePostsFile() {
                     }
                 }
             }
-            const normalized = posts.map(normalizePost);
+            const normalized = posts.map(post => normalizePost(post));
             await writeJsonAtomic(postsFilePath, normalized);
+            indexCache = null;
             console.log("[Migration] Index rebuilt successfully.");
         } else {
             await writePosts([]);
