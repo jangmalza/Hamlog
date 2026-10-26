@@ -146,7 +146,7 @@ const injectBoundaryFailure = (context, boundary, fixture) => {
     }
     if ((boundary === 'views' && target.endsWith('/post-views.json'))
       || (boundary === 'comments' && target.endsWith('/comments.json'))
-      || (boundary === 'other-file' && indexWrites === 2 && target.endsWith('/posts/unrelated.json'))
+      || (boundary === 'stale-other-file' && target.endsWith('/posts/unrelated.json'))
       || (boundary === 'intent-write' && target.includes('/post-deletions/'))) fail();
     return originalRename(from, to);
   });
@@ -167,11 +167,19 @@ const injectBoundaryFailure = (context, boundary, fixture) => {
   };
 };
 
-for (const boundary of ['retain-marker', 'revisions', 'views', 'comments', 'final-index', 'other-file', 'individual-file', 'intent-removal']) {
+for (const boundary of ['retain-marker', 'revisions', 'views', 'comments', 'final-index', 'stale-other-file', 'individual-file', 'intent-removal']) {
   for (const recovery of ['retry', 'restart']) {
     test(`purge survives ${boundary} EIO with ${recovery} recovery`, async context => {
       const fixture = await makePurgeFixture();
       const [revision] = await readPostRevisions(fixture.post.id);
+      if (boundary === 'stale-other-file') {
+        // Unchanged files are no longer rewritten, so an unrelated file is only
+        // written when an earlier interrupted save left it behind the index.
+        await fs.writeFile(
+          path.join(process.env.HAMLOG_DATA_DIR, 'posts', 'unrelated.json'),
+          JSON.stringify({ ...fixture.other, title: 'Stale individual copy' }, null, 2)
+        );
+      }
       const stopFailure = injectBoundaryFailure(context, boundary, fixture);
       try {
         await assert.rejects(permanentlyDeletePostService(fixture.post.id, fixture.confirmation), { code: 'EIO' });
@@ -191,9 +199,13 @@ for (const boundary of ['retain-marker', 'revisions', 'views', 'comments', 'fina
       assert.equal((await createPostService({ slug: fixture.post.slug, title: 'Reserved slug', status: 'draft' })).code, 'duplicate_slug');
       assert.equal((await permanentlyDeletePostService(fixture.post.id, { ...fixture.confirmation, confirmTitle: 'wrong' })).code, 'validation_error');
       assert.equal((await permanentlyDeletePostService(fixture.post.id, { ...fixture.confirmation, expectedDeletedAt: 'obsolete' })).code, 'edit_conflict');
-      if (['other-file', 'individual-file', 'intent-removal'].includes(boundary)) {
+      if (['individual-file', 'intent-removal'].includes(boundary)) {
         const index = JSON.parse(await fs.readFile(path.join(process.env.HAMLOG_DATA_DIR, 'posts.json'), 'utf8'));
         assert.ok(!index.some(post => post.id === fixture.post.id), 'index removal was committed before the injected failure');
+      }
+      if (boundary === 'stale-other-file') {
+        const index = JSON.parse(await fs.readFile(path.join(process.env.HAMLOG_DATA_DIR, 'posts.json'), 'utf8'));
+        assert.ok(index.find(post => post.id === fixture.post.id)?.purgeRequestedAt, 'the pending marker index was committed before the injected failure');
       }
       if (recovery === 'retry') {
         assert.equal((await permanentlyDeletePostService(fixture.post.id, fixture.confirmation)).success, true);
