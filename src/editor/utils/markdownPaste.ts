@@ -15,17 +15,19 @@ const BLOCK_PATTERNS = [
   /^ {0,3}\$\$/ // display math
 ];
 const TABLE_DELIMITER_PATTERN = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|?[ \t]*$/;
+// `__x__` is left out and `**` must sit on word boundaries: plain text such as
+// `__init__.py` or `2**10` is far more common in pastes than that emphasis.
 const INLINE_PATTERNS = [
   /!?\[[^\]\n]+\]\([^)\s]+(?:[ \t]+"[^"\n]*")?\)/, // link or image
-  /\*\*[^*\n]+\*\*/,
-  /__[^_\n]+__/,
+  /(?:^|[^\w*])\*\*[^*\s][^*\n]*\*\*(?![\w*])/,
   /`[^`\n]+`/,
   /\$\$[^$\n]+\$\$/
 ];
 
 // Code editors put styled spans in text/html; their plain text is still the source.
+// `pre`/`code`/`p` mean the source already chose a structure (code is code).
 const PRESENTATIONAL_HTML_TAGS = new Set([
-  'html', 'head', 'body', 'meta', 'style', 'div', 'span', 'pre', 'code', 'br', 'p', 'font'
+  'html', 'head', 'body', 'meta', 'style', 'div', 'span', 'br', 'font'
 ]);
 
 export interface MarkdownPasteData {
@@ -72,6 +74,8 @@ const readVscodeMode = (vscodeEditorData: string) => {
 
 export const shouldConvertMarkdownPaste = ({ text, html = '', vscodeEditorData = '' }: MarkdownPasteData) => {
   if (!text.trim() || text.length > MAX_MARKDOWN_PASTE_LENGTH) return false;
+  // Copied from a ProseMirror editor (including this one): keep its exact nodes.
+  if (html.includes('data-pm-slice')) return false;
   if (vscodeEditorData) {
     // VS Code reports the source language; only Markdown files are converted.
     const mode = readVscodeMode(vscodeEditorData);

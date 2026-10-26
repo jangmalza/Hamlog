@@ -1084,6 +1084,15 @@ test('admin editor converts pasted Markdown and keeps rich, plain, and code past
   await expect(editor).toContainText('# 그대로 둘 제목');
   await expect(editor.locator('h2, ul')).toHaveCount(0);
 
+  // A code block copied from this editor stays a code block.
+  await clearEditor();
+  await paste({
+    'text/plain': '# install deps\nnpm ci',
+    'text/html': '<pre data-pm-slice="0 0 []"><code class="language-bash"># install deps\nnpm ci</code></pre>'
+  });
+  await expect(editor.locator('pre code.language-bash')).toHaveText('# install deps\nnpm ci');
+  await expect(editor.locator('h2')).toHaveCount(0);
+
   await clearEditor();
   await toolbar.getByRole('button', { name: '코드 블록', exact: true }).click();
   await paste({ 'text/plain': '# 코드 안의 주석\n- 목록 아님' });

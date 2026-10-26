@@ -49,6 +49,27 @@ test('single-line pastes convert only inline Markdown', () => {
   assert.equal(looksLikeMarkdown('- 한 줄 목록'), false);
   assert.equal(looksLikeMarkdown('https://example.com/a_b_c'), false);
   assert.equal(looksLikeMarkdown('가격은 $5에서 $10 사이'), false);
+  assert.equal(looksLikeMarkdown('이 문장은**굵게**를 씁니다'), true);
+  // Plain code-like text must not turn into emphasis.
+  assert.equal(looksLikeMarkdown('__init__.py'), false);
+  assert.equal(looksLikeMarkdown('if __name__ == "__main__":'), false);
+  assert.equal(looksLikeMarkdown('2**10 and 3**4'), false);
+  assert.equal(looksLikeMarkdown('a ** b ** c'), false);
+});
+
+test('code and editor clipboard HTML is never converted', () => {
+  const code = '# install deps\nnpm ci\n- not a list';
+  for (const html of [
+    // Copied from this editor (or another ProseMirror editor).
+    `<pre data-pm-slice="0 0 []"><code class="language-bash">${code}</code></pre>`,
+    '<p data-pm-slice="1 1 []">1. 설치</p><p>2. 실행</p>',
+    // Docs sites, GitHub, and IDE rich copies.
+    `<pre><code>${code}</code></pre>`,
+    `<html><head><style>.x{}</style></head><body><pre><span>${code}</span></pre></body></html>`,
+    `<code>${code}</code>`
+  ]) {
+    assert.equal(shouldConvertMarkdownPaste({ text: code, html }), false, html);
+  }
 });
 
 test('rich HTML clipboard data keeps its own formatting', () => {
@@ -62,7 +83,9 @@ test('rich HTML clipboard data keeps its own formatting', () => {
     text: markdownDocument,
     html: '<meta charset="utf-8"><!--StartFragment--><div style="color: #ccc"><span># 배포 가이드</span><br></div>'
   }), true);
-  assert.equal(isPresentationalHtml('<pre style="white-space: pre-wrap"><code>- a</code></pre>'), true);
+  assert.equal(isPresentationalHtml('<div><span style="color: #ccc">- a</span><br></div>'), true);
+  assert.equal(isPresentationalHtml('<pre style="white-space: pre-wrap"><code>- a</code></pre>'), false);
+  assert.equal(isPresentationalHtml('<p>- 웹 페이지 문단</p>'), false);
   assert.equal(isPresentationalHtml('<p>문단 <a href="https://example.com">링크</a></p>'), false);
 });
 
