@@ -20,6 +20,7 @@ import { ImageGallery } from '../components/editor/extensions/ImageGallery';
 import { LinkCard } from './extensions/LinkCard';
 import { CustomImage } from './extensions/CustomImage';
 import { Columns, Column } from './extensions/Column';
+import { MarkdownPaste } from './extensions/MarkdownPaste';
 import { getSuggestionItems } from './slashCommands/registry';
 import { EDITOR_HEADING_LEVELS, EDITOR_TEXT_ALIGN_TYPES } from '../utils/editorConstants';
 
@@ -73,5 +74,6 @@ export const getEditorExtensions = () => [
     }),
     LinkCard,
     Columns,
-    Column
+    Column,
+    MarkdownPaste
 ];

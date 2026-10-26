@@ -1016,6 +1016,83 @@ test('published fenced Mermaid code block renders as a public diagram', async ({
   }
 });
 
+test('admin editor converts pasted Markdown and keeps rich, plain, and code pastes as before', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await openAdminEditor(page);
+  const editor = page.locator('.ProseMirror').first();
+  const toolbar = page.getByRole('toolbar', { name: '글 편집 도구' });
+  const paste = (entries: Record<string, string>) => editor.evaluate((element, data) => {
+    const transfer = new DataTransfer();
+    for (const [type, value] of Object.entries(data)) transfer.setData(type, value);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }));
+  }, entries);
+  const clearEditor = async () => {
+    await editor.press('Control+a');
+    await editor.press('Delete');
+  };
+  const markdown = [
+    '# 배포 가이드',
+    '',
+    '**굵게**와 `kubectl` [문서](https://example.com/docs)',
+    '',
+    '## 준비',
+    '',
+    '- 첫째',
+    '- 둘째',
+    '',
+    '| 이름 | 값 |',
+    '| --- | --- |',
+    '| a | 1 |',
+    '',
+    '```ts',
+    'const ready = true;',
+    '```',
+    '',
+    '```mermaid',
+    'graph TD',
+    '  A-->B',
+    '```'
+  ].join('\n');
+
+  await editor.click();
+  await paste({ 'text/plain': markdown });
+  await expect(editor.locator('h2')).toHaveText('배포 가이드');
+  await expect(editor.locator('h3')).toHaveText('준비');
+  await expect(editor.locator('h1')).toHaveCount(0);
+  await expect(editor.locator('strong')).toHaveText('굵게');
+  await expect(editor.locator('p code')).toHaveText('kubectl');
+  await expect(editor.locator('a[href="https://example.com/docs"]')).toHaveText('문서');
+  await expect(editor.locator('ul > li')).toHaveCount(2);
+  await expect(editor.locator('table td').first()).toHaveText('a');
+  await expect(editor.locator('pre code.language-ts')).toHaveText('const ready = true;');
+  await expect(editor.locator('[data-type="mermaid"]')).toHaveCount(1);
+
+  // The whole conversion is one paste step.
+  await toolbar.getByRole('button', { name: '실행 취소', exact: true }).click();
+  await expect(editor.locator('h2, h3, ul, table, pre, [data-type="mermaid"]')).toHaveCount(0);
+
+  await paste({ 'text/plain': '# 제목처럼 보임\n- 항목', 'text/html': '<p><em>리치 텍스트</em></p>' });
+  await expect(editor.locator('em')).toHaveText('리치 텍스트');
+  await expect(editor.locator('h2, ul')).toHaveCount(0);
+
+  await clearEditor();
+  await editor.evaluate(element => element.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'V', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true
+  })));
+  await paste({ 'text/plain': '# 그대로 둘 제목\n- 그대로 둘 항목' });
+  await expect(editor).toContainText('# 그대로 둘 제목');
+  await expect(editor.locator('h2, ul')).toHaveCount(0);
+
+  await clearEditor();
+  await toolbar.getByRole('button', { name: '코드 블록', exact: true }).click();
+  await paste({ 'text/plain': '# 코드 안의 주석\n- 목록 아님' });
+  await expect(editor.locator('pre')).toHaveCount(1);
+  await expect(editor.locator('pre')).toContainText('# 코드 안의 주석');
+  await expect(editor.locator('h2, ul')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('publish shortcut opens the confirmation dialog instead of publishing immediately', async ({ page }) => {
   await openAdminEditor(page);
   await page.getByPlaceholder('제목을 입력하세요').fill('Shortcut publish safety');
