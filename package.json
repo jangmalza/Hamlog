@@ -48,7 +48,7 @@
     "clsx": "^2.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
@@ -93,6 +93,7 @@
   },
   "overrides": {
     "qs": "6.16.0",
-    "katex": "$katex"
+    "katex": "$katex",
+    "happy-dom": "21.0.4"
   }
 }

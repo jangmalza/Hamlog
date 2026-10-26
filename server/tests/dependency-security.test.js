@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import { mergeAttributes } from '@tiptap/core';
 
 const require = createRequire(import.meta.url);
@@ -8,6 +10,9 @@ const expressRequire = createRequire(require.resolve('express'));
 const bodyParserRequire = createRequire(expressRequire.resolve('body-parser'));
 const mermaidRequire = createRequire(require.resolve('mermaid'));
 const sharpRequire = createRequire(require.resolve('sharp'));
+const axiosRequire = createRequire(require.resolve('axios'));
+const cheerioRequire = createRequire(require.resolve('cheerio'));
+const tiptapHtmlRequire = createRequire(require.resolve('@tiptap/html/server'));
 const sharp = require('sharp');
 const { gte } = sharpRequire('semver');
 
@@ -128,6 +133,35 @@ for (const [entry, merge] of [
     assert.deepEqual(merge({ class: 'one' }, { class: 'two', title: 'safe' }), {
       class: 'one two', title: 'safe'
     });
+  });
+}
+
+// Resolve each package the way its runtime consumer does, so an override or a
+// nested copy cannot hide an unpatched version.
+const resolvedVersion = (load, name) => {
+  let dir = path.dirname(load.resolve(name));
+  while (dir !== path.dirname(dir)) {
+    const manifest = path.join(dir, 'package.json');
+    if (existsSync(manifest)) {
+      const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+      if (pkg.name === name) return pkg.version;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error(`package.json not found for ${name}`);
+};
+
+for (const [name, consumer, load, minimum, advisories] of [
+  ['body-parser', 'express', expressRequire, '1.20.9', 'GHSA-27r3-jxmh-p828'],
+  ['dompurify', 'hamlog', require, '3.4.17', 'GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, GHSA-c6gr-qvv4-5v3f'],
+  ['dompurify', 'mermaid', mermaidRequire, '3.4.17', 'GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, GHSA-c6gr-qvv4-5v3f'],
+  ['follow-redirects', 'axios', axiosRequire, '1.16.1', 'GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c'],
+  ['happy-dom', '@tiptap/html', tiptapHtmlRequire, '21.0.4', 'GHSA-834v-8h66-3h79'],
+  ['undici', 'cheerio', cheerioRequire, '7.30.1', 'GHSA-4qv8-2p9j-2685, GHSA-f72v-6w45-q472, GHSA-xjj6-f33q-929c']
+]) {
+  test(`${consumer} resolves patched ${name} (${advisories})`, () => {
+    const version = resolvedVersion(load, name);
+    assert.ok(gte(version, minimum), `Unpatched ${name} for ${consumer}: ${version}`);
   });
 }
 

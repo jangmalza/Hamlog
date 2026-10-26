@@ -89,6 +89,8 @@ npm run verify:data
 - Tiptap 패키지는 보안 수정이 포함된 `3.31.3`으로 버전을 통일합니다. 업그레이드할 때는 에디터와 서버 HTML 렌더러를 함께 검증해야 합니다.
 - Express 4와 body-parser가 사용하는 `qs`는 `overrides`로 `6.16.0`을 사용합니다. 상위 패키지에서 수정 버전을 지원하기 전까지 이 설정을 유지합니다.
 - Axios와 DOMPurify의 최소 버전을 각각 `1.20.0`, `3.4.16`으로 올리고, 잠금 파일의 Undici·ip-address·brace-expansion도 보안 수정 버전으로 갱신합니다. 운영 의존성과 개발 의존성을 포함한 `npm audit`를 함께 확인합니다.
+- DOMPurify의 최소 버전을 `3.4.17`로 올리고, 잠금 파일의 body-parser `1.20.9`, follow-redirects `1.16.2`, Undici `7.30.1`, ip-address `10.7.5`도 보안 수정 버전으로 갱신합니다. 각 패키지를 실제로 사용하는 상위 패키지 기준으로 해석한 버전을 회귀 테스트로 확인합니다.
+- `@tiptap/html`의 서버 렌더러가 사용하는 Happy DOM은 [import alias 코드 실행 취약점](https://github.com/advisories/GHSA-834v-8h66-3h79)이 `21.0.4`에서만 수정되어 `overrides`로 고정합니다. Tiptap의 peer 범위(`^20.8.9`) 밖이므로 Tiptap을 올릴 때 이 고정이 아직 필요한지 확인하고 서버 렌더러 테스트를 함께 실행합니다.
 - KaTeX는 `0.18.2` 이상을 사용하고 `overrides`로 Mermaid에도 같은 버전을 적용합니다. 잠금 파일의 `proxy-addr`도 `2.0.8` 이상으로 유지하여 IPv4-mapped IPv6 신뢰 주소 검사를 보호합니다.
 - 개발 도구의 `braces`에는 [중첩 패턴 처리 취약점](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)이 있으며 현재 수정 버전이 없습니다. Tailwind CSS 3의 개발 의존성이므로 전체 감사에는 경고가 남습니다. 자동 `npm audit fix --force`는 Tailwind CSS 4 전환을 요구하므로 별도로 호환성을 검증해야 합니다.
 - Tiptap 3의 표·다단 메뉴는 Floating UI를 사용합니다. `tippy.js`는 자체 슬래시 명령 메뉴에서 여전히 필요합니다.
