@@ -184,4 +184,10 @@ for (const [consumer, load] of [['express', expressRequire], ['body-parser', bod
       assert.deepEqual(qs.parse(qs.stringify(parsed), options), parsed);
     }
   });
+
+  test(`${consumer} qs comma-format stringify tolerates a non-callable toString`, () => {
+    // GHSA-6pq8-jhm2-2vcw: an array element whose own toString is not a function must not crash stringify.
+    const items = [{ toString: 'not-a-function' }];
+    assert.doesNotThrow(() => qs.stringify({ items }, { arrayFormat: 'comma' }));
+  });
 }

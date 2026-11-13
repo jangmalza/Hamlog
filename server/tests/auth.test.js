@@ -12,6 +12,25 @@ test('POST /api/auth/login should reject invalid password', async () => {
     assert.equal(response.body.message, '비밀번호가 올바르지 않습니다.');
 });
 
+test('POST /api/auth/login should reject non-string and partial passwords', async () => {
+    for (const password of [
+        undefined,
+        null,
+        123,
+        ['test-password'],
+        { toString: 'test-password' },
+        'test-passwor',
+        'test-password-extra'
+    ]) {
+        const response = await request(app)
+            .post('/api/auth/login')
+            .send({ password });
+
+        assert.equal(response.status, 401, `password ${JSON.stringify(password)} must be rejected`);
+        assert.equal(response.headers['set-cookie'], undefined);
+    }
+});
+
 test('POST /api/auth/login should issue cross-site compatible cookie when CORS origins are configured', async () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousCorsOrigins = process.env.CORS_ORIGINS;
