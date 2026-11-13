@@ -95,6 +95,7 @@ test('upgraded editor updates formatting controls and keeps table menus undoable
   const toolbar = page.getByRole('toolbar', { name: '글 편집 도구' });
   await editor.fill('서식과 표 호환성');
   await editor.press('Control+a');
+  await toolbar.getByRole('button', { name: '추가 편집 도구 열기' }).click();
   const bold = toolbar.getByRole('button', { name: '굵게', exact: true });
   const underline = toolbar.getByRole('button', { name: '밑줄', exact: true });
   await bold.click();
@@ -208,7 +209,25 @@ test('admin editor toolbar is grouped and accessible', async ({ page }) => {
   const toolbar = page.getByRole('toolbar', { name: '글 편집 도구' });
   await expect(toolbar).toBeVisible();
 
-  for (const groupName of ['실행 기록', '문단 설정', '텍스트 서식', '정렬', '목록과 인용', '삽입']) {
+  for (const groupName of ['실행 기록', '문단 설정', '텍스트 서식', '목록과 인용', '삽입']) {
+    await expect(toolbar.getByRole('group', { name: groupName })).toBeVisible();
+  }
+  const moreToolsGroups = ['글자 크기', '추가 텍스트 서식', '정렬', '추가 삽입'];
+  for (const groupName of moreToolsGroups) {
+    await expect(toolbar.getByRole('group', { name: groupName })).toHaveCount(0);
+  }
+  const toolbarOverflow = await toolbar.getByTestId('editor-toolbar-scroll').evaluate(node => ({
+    scrollWidth: node.scrollWidth,
+    clientWidth: node.clientWidth
+  }));
+  expect(toolbarOverflow.scrollWidth).toBeLessThanOrEqual(toolbarOverflow.clientWidth);
+
+  const moreToolsButton = toolbar.getByRole('button', { name: '추가 편집 도구 열기' });
+  await expect(moreToolsButton).toHaveAttribute('aria-expanded', 'false');
+  await moreToolsButton.click();
+  const closeMoreToolsButton = toolbar.getByRole('button', { name: '추가 편집 도구 닫기' });
+  await expect(closeMoreToolsButton).toHaveAttribute('aria-expanded', 'true');
+  for (const groupName of moreToolsGroups) {
     await expect(toolbar.getByRole('group', { name: groupName })).toBeVisible();
   }
 
@@ -291,11 +310,13 @@ test('admin editor toolbar is grouped and accessible', async ({ page }) => {
   });
   await expect(page.getByText('이미지는 8MB 이하만 가능합니다.')).toBeVisible();
 
-  const toolbarOverflow = await toolbar.getByTestId('editor-toolbar-scroll').evaluate(node => ({
-    scrollWidth: node.scrollWidth,
-    clientWidth: node.clientWidth
-  }));
-  expect(toolbarOverflow.scrollWidth).toBeGreaterThan(toolbarOverflow.clientWidth);
+  // The expanded state is remembered per browser.
+  await page.reload();
+  await expect(toolbar.getByRole('button', { name: '추가 편집 도구 닫기' })).toHaveAttribute('aria-expanded', 'true');
+  await toolbar.getByRole('button', { name: '추가 편집 도구 닫기' }).click();
+  await expect(toolbar.getByTestId('editor-more-tools')).toHaveCount(0);
+  await page.reload();
+  await expect(toolbar.getByRole('button', { name: '추가 편집 도구 열기' })).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('admin editor keeps the mobile workspace focused without page overflow', async ({ page }) => {
@@ -350,6 +371,7 @@ test('admin editor keeps the mobile workspace focused without page overflow', as
   expect(await toolbarScroll.evaluate(element => element.scrollTop)).toBe(0);
   await paragraphList.getByRole('option', { name: '제목 2' }).click();
 
+  await expect(toolbar.getByRole('button', { name: '추가 편집 도구 열기' })).toBeInViewport();
   const nextToolsButton = toolbar.getByRole('button', { name: '다음 편집 도구 보기' });
   await expect(nextToolsButton).toBeVisible();
   await nextToolsButton.click();
@@ -924,6 +946,7 @@ test('admin editor inserts, renders, and reopens Mermaid diagrams', async ({ pag
   await openAdminEditor(page);
 
   const toolbar = page.getByRole('toolbar', { name: '글 편집 도구' });
+  await toolbar.getByRole('button', { name: '추가 편집 도구 열기' }).click();
   await toolbar.getByRole('button', { name: '고급 삽입 메뉴' }).click();
   await page.getByRole('button', { name: /Mermaid 다이어그램/ }).click();
 

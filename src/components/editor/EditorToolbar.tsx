@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
-import { ChevronLeft, ChevronRight, Highlighter, Palette } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Ellipsis, Highlighter, Palette } from 'lucide-react';
 import {
   CODE_LANGUAGES,
   HEADING_OPTIONS,
@@ -34,8 +34,33 @@ interface EditorToolbarProps {
   uploadingImage: boolean;
 }
 
-const toolbarGroupClass = 'flex shrink-0 items-center gap-0.5 border border-[color:var(--border)] bg-[var(--surface-strong)] px-1 py-0.5';
+const toolbarGroupClass = 'flex shrink-0 items-center gap-0.5';
 const articleHeadingOptions = HEADING_OPTIONS.filter(option => option.value !== 'h1');
+
+// The primary row keeps everyday writing tools; the rest open in a second row.
+const PRIMARY_FORMATTING_KEYS = new Set(['bold', 'italic', 'inline-code']);
+const PRIMARY_INSERT_KEYS = new Set(['code-block', 'link', 'image-upload']);
+const MORE_TOOLS_STORAGE_KEY = 'hamlog:editor-more-tools';
+
+const readMoreToolsPreference = () => {
+  try {
+    return window.localStorage.getItem(MORE_TOOLS_STORAGE_KEY) === 'open';
+  } catch {
+    return false;
+  }
+};
+
+const writeMoreToolsPreference = (open: boolean) => {
+  try {
+    window.localStorage.setItem(MORE_TOOLS_STORAGE_KEY, open ? 'open' : 'closed');
+  } catch {
+    // Storage is optional; the toolbar still works for this page view.
+  }
+};
+
+function ToolbarDivider() {
+  return <span aria-hidden="true" className="mx-1 h-4 w-px shrink-0 bg-[color:var(--border)]" />;
+}
 
 function ToolbarGroup({
   children,
@@ -81,6 +106,8 @@ export function EditorToolbar({
   uploadingImage
 }: EditorToolbarProps) {
   const toolbarScrollRef = useRef<HTMLDivElement>(null);
+  const moreToolsId = useId();
+  const [moreToolsOpen, setMoreToolsOpen] = useState(readMoreToolsPreference);
   const [scrollHint, setScrollHint] = useState({ overflow: false, left: false, right: false });
   const headingValue = getHeadingValue(editor);
   const fontSizeValue = getFontSizeValue(editor);
@@ -100,6 +127,17 @@ export function EditorToolbar({
     onInsertImageUrl,
     uploadingImage
   });
+  const primaryFormattingActions = formattingActions.filter(action => PRIMARY_FORMATTING_KEYS.has(action.key));
+  const moreFormattingActions = formattingActions.filter(action => !PRIMARY_FORMATTING_KEYS.has(action.key));
+  const primaryInsertActions = insertActions.filter(action => PRIMARY_INSERT_KEYS.has(action.key));
+  const moreInsertActions = insertActions.filter(action => !PRIMARY_INSERT_KEYS.has(action.key));
+
+  const toggleMoreTools = () => {
+    setMoreToolsOpen(current => {
+      writeMoreToolsPreference(!current);
+      return !current;
+    });
+  };
 
   useEffect(() => {
     const scrollElement = toolbarScrollRef.current;
@@ -166,8 +204,8 @@ export function EditorToolbar({
             <ToolbarGroup label="실행 기록">
               <ToolbarActionButtons actions={historyActions} />
             </ToolbarGroup>
-
-            <ToolbarGroup label="문단 설정" className="gap-1">
+            <ToolbarDivider />
+            <ToolbarGroup label="문단 설정">
               <ToolbarDropdown
                 label="문단"
                 value={headingValue}
@@ -191,59 +229,18 @@ export function EditorToolbar({
                 }}
                 disabled={!editor}
               />
-              <ToolbarDropdown
-                label="글자 크기"
-                value={fontSizeValue}
-                width="w-20"
-                options={FONT_SIZES}
-                onSelect={value => {
-                  if (!editor) return;
-                  if (value === 'default') {
-                    editor.chain().focus().unsetFontSize().run();
-                    return;
-                  }
-                  editor.chain().focus().setFontSize(value).run();
-                }}
-                disabled={!editor}
-              />
             </ToolbarGroup>
-
+            <ToolbarDivider />
             <ToolbarGroup label="텍스트 서식">
-              <ToolbarActionButtons actions={formattingActions} />
-              <ToolbarPaletteMenu
-                label="글자색"
-                colors={TEXT_COLORS}
-                active={Boolean(activeColor)}
-                disabled={!editor}
-                buttonIcon={<Palette size={16} />}
-                buttonClassName={activeColor ? 'text-[var(--accent-strong)]' : ''}
-                indicatorColor={activeColor || undefined}
-                clearLabel="색상 제거"
-                onSelect={color => editor?.chain().focus().setColor(color).run()}
-                onClear={() => editor?.chain().focus().unsetColor().run()}
-              />
-              <ToolbarPaletteMenu
-                label="하이라이트"
-                colors={HIGHLIGHT_COLORS}
-                active={Boolean(activeHighlight)}
-                disabled={!editor}
-                buttonIcon={<Highlighter size={16} />}
-                buttonClassName={activeHighlight ? 'bg-yellow-100 dark:bg-yellow-400/15 text-yellow-800 dark:text-yellow-200' : ''}
-                indicatorColor={activeHighlight || undefined}
-                clearLabel="형광펜 제거"
-                onSelect={color => editor?.chain().focus().toggleHighlight({ color }).run()}
-                onClear={() => editor?.chain().focus().unsetHighlight().run()}
-              />
+              <ToolbarActionButtons actions={primaryFormattingActions} />
             </ToolbarGroup>
-
-            <ToolbarGroup label="정렬">
-              <ToolbarActionButtons actions={alignmentActions} />
-            </ToolbarGroup>
+            <ToolbarDivider />
             <ToolbarGroup label="목록과 인용">
               <ToolbarActionButtons actions={listActions} />
             </ToolbarGroup>
+            <ToolbarDivider />
             <ToolbarGroup label="삽입">
-              <ToolbarActionButtons actions={insertActions} />
+              <ToolbarActionButtons actions={primaryInsertActions} />
             </ToolbarGroup>
           </div>
         </div>
@@ -262,7 +259,78 @@ export function EditorToolbar({
             <ChevronRight size={15} />
           </button>
         )}
+        <ToolbarDivider />
+        <ToolbarButton
+          label={moreToolsOpen ? '추가 편집 도구 닫기' : '추가 편집 도구 열기'}
+          onClick={toggleMoreTools}
+          active={moreToolsOpen}
+          ariaControls={moreToolsId}
+          ariaExpanded={moreToolsOpen}
+          icon={<Ellipsis size={16} />}
+        />
       </div>
+
+      {moreToolsOpen && (
+        <div
+          id={moreToolsId}
+          className="flex flex-wrap items-center gap-y-1 border-t border-[color:var(--border)] pt-0.5"
+          data-testid="editor-more-tools"
+        >
+          <ToolbarGroup label="글자 크기">
+            <ToolbarDropdown
+              label="글자 크기"
+              value={fontSizeValue}
+              width="w-20"
+              options={FONT_SIZES}
+              onSelect={value => {
+                if (!editor) return;
+                if (value === 'default') {
+                  editor.chain().focus().unsetFontSize().run();
+                  return;
+                }
+                editor.chain().focus().setFontSize(value).run();
+              }}
+              disabled={!editor}
+            />
+          </ToolbarGroup>
+          <ToolbarDivider />
+          <ToolbarGroup label="추가 텍스트 서식">
+            <ToolbarActionButtons actions={moreFormattingActions} />
+            <ToolbarPaletteMenu
+              label="글자색"
+              colors={TEXT_COLORS}
+              active={Boolean(activeColor)}
+              disabled={!editor}
+              buttonIcon={<Palette size={16} />}
+              buttonClassName={activeColor ? 'text-[var(--accent-strong)]' : ''}
+              indicatorColor={activeColor || undefined}
+              clearLabel="색상 제거"
+              onSelect={color => editor?.chain().focus().setColor(color).run()}
+              onClear={() => editor?.chain().focus().unsetColor().run()}
+            />
+            <ToolbarPaletteMenu
+              label="하이라이트"
+              colors={HIGHLIGHT_COLORS}
+              active={Boolean(activeHighlight)}
+              disabled={!editor}
+              buttonIcon={<Highlighter size={16} />}
+              buttonClassName={activeHighlight ? 'bg-yellow-100 dark:bg-yellow-400/15 text-yellow-800 dark:text-yellow-200' : ''}
+              indicatorColor={activeHighlight || undefined}
+              clearLabel="형광펜 제거"
+              onSelect={color => editor?.chain().focus().toggleHighlight({ color }).run()}
+              onClear={() => editor?.chain().focus().unsetHighlight().run()}
+            />
+          </ToolbarGroup>
+          <ToolbarDivider />
+          <ToolbarGroup label="정렬">
+            <ToolbarActionButtons actions={alignmentActions} />
+          </ToolbarGroup>
+          <ToolbarDivider />
+          <ToolbarGroup label="추가 삽입">
+            <ToolbarActionButtons actions={moreInsertActions} />
+          </ToolbarGroup>
+        </div>
+      )}
 
       <CodeLanguageSelector
         active={isCodeBlockActive}
