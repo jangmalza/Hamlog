@@ -7,42 +7,33 @@ import {
   ImagePlus,
   Mail,
   MapPin,
-  UserRound,
-  X
+  UserRound
 } from 'lucide-react';
 import type { SiteMeta } from '../../../data/blogData';
 import { DISPLAY_FIELDS, SOCIAL_FIELDS } from './constants';
-import { Field, SectionCard, inputClassName, textareaClassName } from './shared';
+import { Field, SectionCard, TagListInput, inputClassName, textareaClassName } from './shared';
 import type { ProfileChangeHandler, ProfileSocialChangeHandler } from './types';
 
 interface ProfileEditorSectionsProps {
   profileDraft: SiteMeta;
   uploading: boolean;
-  stackInputValue: string;
   fileInputRef: React.RefObject<HTMLInputElement>;
   faviconInputRef: React.RefObject<HTMLInputElement>;
   onProfileChange: ProfileChangeHandler;
   onProfileSocialChange: ProfileSocialChangeHandler;
   onDisplayToggle: (key: keyof SiteMeta['display']) => void;
   onImageUpload: (event: React.ChangeEvent<HTMLInputElement>, field: 'profileImage' | 'favicon') => void;
-  onStackInputValueChange: (value: string) => void;
-  onStackKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-  onRemoveStackTag: (tag: string) => void;
 }
 
 const ProfileEditorSections = ({
   profileDraft,
   uploading,
-  stackInputValue,
   fileInputRef,
   faviconInputRef,
   onProfileChange,
   onProfileSocialChange,
   onDisplayToggle,
-  onImageUpload,
-  onStackInputValueChange,
-  onStackKeyDown,
-  onRemoveStackTag
+  onImageUpload
 }: ProfileEditorSectionsProps) => (
   <div className="grid gap-6 lg:grid-cols-2">
     <SectionCard
@@ -55,6 +46,14 @@ const ProfileEditorSections = ({
           <input
             value={profileDraft.title ?? ''}
             onChange={event => onProfileChange('title', event.target.value)}
+            className={inputClassName}
+          />
+        </Field>
+        <Field label="제목 뒤 문구" hint="홈 제목 뒤에 ' | 문구'로 붙습니다. 비워 두면 블로그 이름만 씁니다.">
+          <input
+            value={profileDraft.titleSuffix ?? ''}
+            onChange={event => onProfileChange('titleSuffix', event.target.value)}
+            placeholder="개발 기록"
             className={inputClassName}
           />
         </Field>
@@ -73,6 +72,26 @@ const ProfileEditorSections = ({
             className={textareaClassName}
           />
         </Field>
+        <Field label="사이트 주소" hint="검색엔진용 대표 주소와 사이트맵에 쓰입니다. 비워 두면 SITE_URL 환경변수를 씁니다.">
+          <input
+            type="url"
+            value={profileDraft.siteUrl ?? ''}
+            onChange={event => onProfileChange('siteUrl', event.target.value)}
+            placeholder="https://blog.example.com"
+            className={inputClassName}
+          />
+        </Field>
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">검색 키워드</p>
+          <p className="mb-1.5 mt-1 text-[11px] text-[var(--text-muted)]">홈 화면 keywords 메타 태그에 주력 스택과 함께 들어갑니다.</p>
+          <TagListInput
+            values={profileDraft.keywords ?? []}
+            onChange={keywords => onProfileChange('keywords', keywords)}
+            emptyPlaceholder="개발, 기술 블로그..."
+            morePlaceholder="키워드 추가"
+            ariaLabel="검색 키워드"
+          />
+        </div>
       </div>
     </SectionCard>
 
@@ -257,32 +276,12 @@ const ProfileEditorSections = ({
       description="홈 소개 카드에 노출할 태그를 관리합니다. 엔터나 쉼표로 빠르게 추가할 수 있습니다."
       className="lg:col-span-2"
     >
-      <div className="rounded-lg border border-[color:var(--border)] bg-[var(--surface-muted)] p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {profileDraft.stack.map(tag => (
-            <span
-              key={tag}
-              className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--text)]"
-            >
-              {tag}
-              <button
-                type="button"
-                onClick={() => onRemoveStackTag(tag)}
-                className="rounded-md p-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-red-500 dark:hover:text-red-300"
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-          <input
-            value={stackInputValue}
-            onChange={event => onStackInputValueChange(event.target.value)}
-            onKeyDown={onStackKeyDown}
-            placeholder={profileDraft.stack.length ? '스택 추가' : 'React, TypeScript, AWS...'}
-            className="min-w-[200px] flex-1 bg-transparent px-1 py-2 text-sm text-[var(--text)] outline-none"
-          />
-        </div>
-      </div>
+      <TagListInput
+        values={profileDraft.stack}
+        onChange={stack => onProfileChange('stack', stack)}
+        emptyPlaceholder="React, TypeScript, AWS..."
+        morePlaceholder="스택 추가"
+      />
       <p className="mt-3 text-sm text-[var(--text-muted)]">
         현재 {profileDraft.stack.length}개의 스택 태그가 등록되어 있습니다.
       </p>

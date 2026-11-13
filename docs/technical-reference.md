@@ -178,6 +178,11 @@ Cloudflare Access 로그인 통합은 [설정 가이드](cloudflare-access.md)�
 - `TRUST_PROXY` (optional, default: `0`)
   - Express 앞에 신뢰할 수 있는 reverse proxy가 있을 때만 hop 수 또는 IP/subnet을 지정
   - 예: 프록시가 정확히 한 단계면 `1`, 직접 노출이면 `0`
+- `SITE_URL` (optional, production에서 권장)
+  - canonical, Open Graph, 사이트맵, RSS, `robots.txt`에 쓰이는 대표 주소. 예: `https://blog.example.com`
+  - 관리자 **자기소개 → 사이트 주소**에 값이 있으면 그 값이 우선합니다.
+  - 둘 다 없으면 `http://localhost:<PORT>`를 쓰며, production에서는 시작할 때 경고를 남깁니다.
+  - 홈 제목 뒤 문구와 검색 키워드는 관리자 **자기소개** 화면에서 설정합니다.
 - `GOOGLE_SITE_VERIFICATION` (optional)
   - Search Console의 HTML 태그 인증을 사용할 때 메타 태그 content 값
   - 예: Search Console이 `<meta name="google-site-verification" content="abc123" />`를 주면 `abc123`

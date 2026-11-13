@@ -1,11 +1,11 @@
 import { normalizeOptionalString, normalizeRequiredString } from './shared.js';
+import { LEGACY_KEYWORDS, LEGACY_TITLE_SUFFIX } from '../siteIdentity.js';
 
 const SOCIAL_KEYS = ['github', 'linkedin', 'twitter', 'instagram', 'threads', 'telegram'];
-const DEFAULT_SITE_URL = (process.env.SITE_URL?.trim() || 'https://tech.hamwoo.co.kr').replace(/\/+$/, '');
 
-function normalizeSiteUrl(value, fallback = DEFAULT_SITE_URL) {
-    const normalized = normalizeOptionalString(value, fallback).replace(/\/+$/, '');
-    return normalized || fallback;
+// An empty site URL means "not set": SEO URLs then come from SITE_URL.
+function normalizeSiteUrl(value) {
+    return normalizeOptionalString(value, '').replace(/\/+$/, '');
 }
 
 export const defaultProfile = {
@@ -18,7 +18,9 @@ export const defaultProfile = {
     profileImage: '',
     favicon: '/avatar.jpg',
     email: '',
-    siteUrl: DEFAULT_SITE_URL,
+    siteUrl: '',
+    titleSuffix: '',
+    keywords: [],
     social: {
         github: '',
         linkedin: '',
@@ -101,7 +103,13 @@ export function normalizeProfile(raw) {
         profileImage: normalizeOptionalString(source.profileImage, defaultProfile.profileImage),
         favicon: normalizeOptionalString(source.favicon, defaultProfile.favicon),
         email: normalizeOptionalString(source.email, defaultProfile.email),
-        siteUrl: normalizeSiteUrl(source.siteUrl, defaultProfile.siteUrl),
+        siteUrl: normalizeSiteUrl(source.siteUrl),
+        titleSuffix: source.titleSuffix === undefined || source.titleSuffix === null
+            ? LEGACY_TITLE_SUFFIX
+            : normalizeOptionalString(source.titleSuffix, ''),
+        keywords: source.keywords === undefined || source.keywords === null
+            ? [...LEGACY_KEYWORDS]
+            : normalizeStack(source.keywords),
         social: normalizeSocial(source.social, defaultProfile.social),
         stack,
         now: normalizeOptionalString(source.now, defaultProfile.now),
@@ -125,6 +133,7 @@ export function mergeProfile(current, input) {
         'favicon',
         'email',
         'siteUrl',
+        'titleSuffix',
         'now'
     ].forEach((field) => {
         if (Object.prototype.hasOwnProperty.call(input, field)) {
@@ -140,6 +149,10 @@ export function mergeProfile(current, input) {
 
     if (Object.prototype.hasOwnProperty.call(input, 'stack')) {
         next.stack = normalizeStack(input.stack);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(input, 'keywords')) {
+        next.keywords = normalizeStack(input.keywords);
     }
 
     if (Object.prototype.hasOwnProperty.call(input, 'social')) {

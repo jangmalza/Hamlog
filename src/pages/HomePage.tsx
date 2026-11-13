@@ -9,6 +9,7 @@ import { useSeo } from '../hooks/useSeo';
 import { useSchema } from '../hooks/useSchema';
 import { useHomeData } from '../hooks/useHomeData';
 import { useHomePostFilter } from '../hooks/useHomePostFilter';
+import { DEFAULT_SITE_DESCRIPTION, formatHomeTitle, resolveHomeKeywords } from '../../server/utils/siteIdentity.js';
 
 const HomePage = () => {
     // 1. Data Fetching Hook
@@ -46,20 +47,9 @@ const HomePage = () => {
         categoryTree
     } = useHomePostFilter({ posts, managedCategories });
 
-    const homeTitle = profile.title.includes('|')
-        ? profile.title
-        : `${profile.title} | 클라우드 엔지니어링과 개발 기록`;
-    const homeDescription = profile.description?.trim()
-        || '클라우드 엔지니어링, 인프라, DevOps, 개발 경험을 기록하는 기술 블로그입니다.';
-    const homeKeywords = Array.from(new Set([
-        '클라우드 엔지니어링',
-        'DevOps',
-        '인프라',
-        'AWS',
-        'GCP',
-        'Kubernetes',
-        ...profile.stack
-    ]));
+    const homeTitle = formatHomeTitle(profile);
+    const homeDescription = profile.description?.trim() || DEFAULT_SITE_DESCRIPTION;
+    const homeKeywords = resolveHomeKeywords(profile);
     const configuredFavicon = profile.favicon?.trim();
     const homeFavicon = !configuredFavicon || configuredFavicon === '/avatar.jpg'
         ? '/favicon.svg'

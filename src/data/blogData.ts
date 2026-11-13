@@ -1,18 +1,19 @@
 import type { SiteMeta, TopicHighlight } from '../types/blog';
+import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../../server/utils/siteIdentity.js';
 
 export * from '../types/blog';
 
 export const siteMeta: SiteMeta = {
-  title: 'Ham_Tech_Log',
+  title: DEFAULT_SITE_TITLE,
   name: 'Author Name',
   role: 'Role',
   tagline: 'Tagline',
-  description: '클라우드 엔지니어링, 인프라, DevOps, 개발 경험을 기록하는 기술 블로그입니다.',
+  description: DEFAULT_SITE_DESCRIPTION,
   location: 'Location',
   profileImage: '/avatar.jpg',
   favicon: '/avatar.jpg',
   email: '',
-  siteUrl: 'https://tech.hamwoo.co.kr',
+  siteUrl: '',
   social: {
     github: '',
     linkedin: '',

@@ -80,7 +80,7 @@ test('backend exposes robots and baseline security headers', async ({ request })
   const robots = await robotsResponse.text();
   expect(robots).toContain('User-agent: *');
   expect(robots).toContain('Allow: /');
-  expect(robots).toContain('Sitemap: https://tech.hamwoo.co.kr/sitemap.xml');
+  expect(robots).toMatch(/^Sitemap: https?:\/\/\S+\/sitemap\.xml$/m);
 });
 
 test('upgraded editor updates formatting controls and keeps table menus undoable', async ({ page }) => {

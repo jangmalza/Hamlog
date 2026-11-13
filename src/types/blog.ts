@@ -20,6 +20,9 @@ export interface SiteMeta {
     favicon?: string;
     email: string;
     siteUrl: string;
+    // Optional so drafts cached before these fields existed never clear them on save.
+    titleSuffix?: string;
+    keywords?: string[];
     social: {
         github?: string;
         linkedin?: string;

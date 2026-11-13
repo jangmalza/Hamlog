@@ -5,6 +5,8 @@ import { filterPublicPosts, findPublicPostBySlug } from '../utils/postVisibility
 import { toPostSummaries } from '../utils/postSummaries.js';
 import { readSpaIndexHtml, resolveSpaIndexPath } from '../utils/spaIndex.js';
 import { buildRobotsTxt, injectSearchVerificationMeta } from '../utils/searchVerification.js';
+import { resolveSiteBaseUrl } from '../config/site.js';
+import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../utils/siteIdentity.js';
 import {
   buildNotFoundPrerenderContent,
   buildPostPrerenderContent,
@@ -19,15 +21,12 @@ import {
   escapeXml,
   injectAppRootContent,
   injectJsonData,
-  normalizeBaseUrl,
   removeHeadTag,
   replaceHeadTag,
   toAbsoluteUrl,
   wrapCdata
 } from '../utils/seoHtml.js';
 
-const DEFAULT_SITE_URL = (process.env.SITE_URL?.trim() || 'https://tech.hamwoo.co.kr').replace(/\/+$/, '');
-const HOME_DESCRIPTION = '클라우드 엔지니어링, 인프라, DevOps, 개발 경험을 기록하는 기술 블로그입니다.';
 
 const resolvePostKeywords = (post) => {
   if (Array.isArray(post?.seo?.keywords) && post.seo.keywords.length > 0) {
@@ -39,9 +38,6 @@ const resolvePostKeywords = (post) => {
   return [];
 };
 
-const resolveBaseUrl = (profile) => {
-  return normalizeBaseUrl(profile?.siteUrl, DEFAULT_SITE_URL);
-};
 const setRobotsDirective = (html, content) => replaceHeadTag(
   html,
   /<meta name="robots" content=".*?" \/>/,
@@ -82,8 +78,8 @@ const toPostBootstrap = (post, description) => {
 };
 
 const buildArticleSchema = (post, canonicalUrl, image, baseUrl, profile, description) => {
-  const authorName = String(profile?.name ?? '').trim() || 'Hamwoo';
-  const siteName = String(profile?.title ?? '').trim() || 'Hamlog';
+  const authorName = String(profile?.name ?? '').trim() || DEFAULT_SITE_TITLE;
+  const siteName = String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE;
   const logo = toAbsoluteUrl(baseUrl, resolveSeoFavicon(profile));
   const schema = {
     '@context': 'https://schema.org',
@@ -136,7 +132,7 @@ export const injectPostMeta = async (req, res) => {
       readProfile(),
       readCategories()
     ]);
-    const baseUrl = resolveBaseUrl(profile);
+    const baseUrl = resolveSiteBaseUrl(profile);
     const post = findPublicPostBySlug(posts, slug);
     const publicPosts = filterPublicPosts(posts);
 
@@ -152,7 +148,7 @@ export const injectPostMeta = async (req, res) => {
 
     if (!post) {
       const requestedUrl = `${baseUrl}${req.originalUrl}`;
-      const siteName = String(profile?.title ?? '').trim() || 'Hamlog';
+      const siteName = String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE;
       const notFoundTitle = `페이지를 찾을 수 없습니다 | ${siteName}`;
 
       html = replaceHeadTag(html, /<title>.*?<\/title>/, `<title>${escapeHtml(notFoundTitle)}</title>`);
@@ -174,8 +170,8 @@ export const injectPostMeta = async (req, res) => {
     const description = resolvePostMetaDescription(post);
     const image = toAbsoluteUrl(baseUrl, post.seo?.ogImage || post.cover || '/avatar.jpg');
     const canonicalUrl = resolveCanonicalUrl(post, baseUrl);
-    const siteName = String(profile?.title ?? '').trim() || 'Hamlog';
-    const authorName = String(profile?.name ?? '').trim() || 'Hamwoo';
+    const siteName = String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE;
+    const authorName = String(profile?.name ?? '').trim() || DEFAULT_SITE_TITLE;
     const favicon = toAbsoluteUrl(baseUrl, resolveSeoFavicon(profile));
     const escapedTitle = escapeHtml(title);
     const escapedDescription = escapeHtml(description);
@@ -326,13 +322,13 @@ export const getRss = async (req, res) => {
   try {
     const posts = await readPosts();
     const profile = await readProfile();
-    const baseUrl = resolveBaseUrl(profile);
+    const baseUrl = resolveSiteBaseUrl(profile);
     const publishedPosts = filterPublicPosts(posts)
       .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
-    const authorName = String(profile?.name ?? '').trim() || 'Hamwoo';
+    const authorName = String(profile?.name ?? '').trim() || DEFAULT_SITE_TITLE;
     const feedDescription = String(profile?.tagline ?? '').trim()
-      || resolveHomeMetaDescription(profile, HOME_DESCRIPTION);
+      || resolveHomeMetaDescription(profile, DEFAULT_SITE_DESCRIPTION);
     const items = publishedPosts.map(post => {
       const canonicalUrl = resolveCanonicalUrl(post, baseUrl);
       const publishedDate = new Date(post.publishedAt);
@@ -381,7 +377,7 @@ export const getRss = async (req, res) => {
 export const getSitemap = async (req, res) => {
   try {
     const [posts, profile] = await Promise.all([readPosts(), readProfile()]);
-    const baseUrl = resolveBaseUrl(profile);
+    const baseUrl = resolveSiteBaseUrl(profile);
     const publishedPosts = filterPublicPosts(posts);
 
     const baseSitemapUrl = normalizeSitemapUrl(baseUrl);
@@ -425,7 +421,7 @@ export const getSitemap = async (req, res) => {
 export const getRobots = async (req, res) => {
   try {
     const profile = await readProfile();
-    const baseUrl = resolveBaseUrl(profile);
+    const baseUrl = resolveSiteBaseUrl(profile);
 
     res
       .set('Content-Type', 'text/plain; charset=utf-8')

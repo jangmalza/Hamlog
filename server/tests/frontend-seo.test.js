@@ -82,7 +82,7 @@ test('static SEO assets expose RSS discovery without false OG dimensions', async
   assert.match(stylesheet, /\.prerender-post-grid\s*\{[^}]*display:\s*grid/s);
   assert.match(stylesheet, /--accent:\s*#2563eb/);
   assert.match(indexHtml, /name="theme-color" content="#2563eb"/);
-  assert.match(manifest, /클라우드 엔지니어링/);
+  assert.equal(JSON.parse(manifest).name, 'Hamlog');
   assert.match(manifest, /"theme_color": "#2563eb"/);
   assert.match(manifest, /"src": "\/favicon\.svg"/);
   assert.match(favicon, /fill="#2563eb"/);

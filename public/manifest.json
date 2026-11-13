@@ -1,7 +1,7 @@
 {
-  "name": "Hamlog | 기술 블로그",
+  "name": "Hamlog",
   "short_name": "Hamlog",
-  "description": "클라우드 엔지니어링, 인프라, DevOps, 개발 경험을 기록하는 기술 블로그입니다.",
+  "description": "Hamlog로 운영하는 블로그입니다.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f4ef",
