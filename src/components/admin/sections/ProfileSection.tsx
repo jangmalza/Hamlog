@@ -21,7 +21,6 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
   onReload
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [stackInputValue, setStackInputValue] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,34 +42,6 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
       setUploading(false);
       event.target.value = '';
     }
-  };
-
-  const handleStackKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!profileDraft) return;
-
-    if (event.key === 'Enter' || event.key === ',') {
-      event.preventDefault();
-      const nextTag = stackInputValue.trim();
-      if (nextTag && !profileDraft.stack.includes(nextTag)) {
-        onProfileChange('stack', [...profileDraft.stack, nextTag]);
-        setStackInputValue('');
-      }
-      return;
-    }
-
-    if (event.key === 'Backspace' && !stackInputValue && profileDraft.stack.length > 0) {
-      const nextStack = [...profileDraft.stack];
-      nextStack.pop();
-      onProfileChange('stack', nextStack);
-    }
-  };
-
-  const removeStackTag = (tagToRemove: string) => {
-    if (!profileDraft) return;
-    onProfileChange(
-      'stack',
-      profileDraft.stack.filter(tag => tag !== tagToRemove)
-    );
   };
 
   const handleDisplayToggle = (key: keyof SiteMeta['display']) => {
@@ -187,16 +158,12 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
         <ProfileEditorSections
           profileDraft={profileDraft}
           uploading={uploading}
-          stackInputValue={stackInputValue}
           fileInputRef={fileInputRef}
           faviconInputRef={faviconInputRef}
           onProfileChange={onProfileChange}
           onProfileSocialChange={onProfileSocialChange}
           onDisplayToggle={handleDisplayToggle}
           onImageUpload={handleImageUpload}
-          onStackInputValueChange={setStackInputValue}
-          onStackKeyDown={handleStackKeyDown}
-          onRemoveStackTag={removeStackTag}
         />
       </div>
     </div>

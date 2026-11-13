@@ -32,6 +32,13 @@ import { createHttpsRedirectMiddleware } from './middleware/httpsRedirect.js';
 import { searchRateLimiter } from './middleware/rateLimit.js';
 import { handleBodyParserError } from './middleware/bodyParser.js';
 import { readSpaIndexHtml } from './utils/spaIndex.js';
+import { resolveSiteBaseUrl } from './config/site.js';
+import {
+    DEFAULT_SITE_DESCRIPTION,
+    DEFAULT_SITE_TITLE,
+    formatHomeTitle,
+    resolveHomeKeywords
+} from './utils/siteIdentity.js';
 import { injectSearchVerificationMeta } from './utils/searchVerification.js';
 import {
     buildHomePrerenderContent,
@@ -43,16 +50,12 @@ import {
     escapeHtml,
     injectAppRootContent,
     injectJsonData,
-    normalizeBaseUrl,
     replaceHeadTag,
     toAbsoluteUrl
 } from './utils/seoHtml.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DEFAULT_SITE_URL = 'https://tech.hamwoo.co.kr';
-const HOME_TITLE_SUFFIX = '클라우드 엔지니어링과 개발 기록';
-const HOME_DESCRIPTION = '클라우드 엔지니어링, 인프라, DevOps, 개발 경험을 기록하는 기술 블로그입니다.';
 
 const app = express();
 app.set('trust proxy', resolveTrustProxy());
@@ -76,51 +79,29 @@ if (process.env.NODE_ENV === 'production') {
     cspDirectives.upgradeInsecureRequests = [];
 }
 
-const resolveBaseUrl = (profile) => {
-    return normalizeBaseUrl(profile?.siteUrl, DEFAULT_SITE_URL);
-};
-const resolveHomeTitle = (profile) => {
-    const title = String(profile?.title ?? '').trim() || 'Ham_Tech_Log';
-    return title.includes('|') ? title : `${title} | ${HOME_TITLE_SUFFIX}`;
-};
 const resolveHomeDescription = (profile) => (
-    resolveHomeMetaDescription(profile, HOME_DESCRIPTION)
+    resolveHomeMetaDescription(profile, DEFAULT_SITE_DESCRIPTION)
 );
-const resolveHomeKeywords = (profile) => {
-    const profileStack = Array.isArray(profile?.stack)
-        ? profile.stack.map(item => String(item).trim()).filter(Boolean)
-        : [];
-
-    return Array.from(new Set([
-        '클라우드 엔지니어링',
-        'DevOps',
-        '인프라',
-        'AWS',
-        'GCP',
-        'Kubernetes',
-        ...profileStack
-    ])).join(', ');
-};
 const buildHomeSchema = (profile, baseUrl, description) => JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: String(profile?.title ?? '').trim() || 'Hamlog',
+    name: String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE,
     description,
     url: baseUrl,
     publisher: {
         '@type': 'Person',
-        name: String(profile?.name ?? '').trim() || 'Hamwoo'
+        name: String(profile?.name ?? '').trim() || DEFAULT_SITE_TITLE
     },
     inLanguage: 'ko-KR'
 }).replace(/</g, '\\u003c');
 
 const injectHomeSeoMeta = (html, profile, posts = [], categories = []) => {
-    const baseUrl = resolveBaseUrl(profile);
-    const title = resolveHomeTitle(profile);
+    const baseUrl = resolveSiteBaseUrl(profile);
+    const title = formatHomeTitle(profile);
     const description = resolveHomeDescription(profile);
-    const keywords = resolveHomeKeywords(profile);
-    const author = String(profile?.name ?? '').trim() || 'Hamwoo';
-    const siteName = String(profile?.title ?? '').trim() || 'Hamlog';
+    const keywords = resolveHomeKeywords(profile).join(', ');
+    const author = String(profile?.name ?? '').trim() || DEFAULT_SITE_TITLE;
+    const siteName = String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE;
     const favicon = toAbsoluteUrl(baseUrl, resolveSeoFavicon(profile));
     const image = toAbsoluteUrl(baseUrl, profile?.profileImage || profile?.favicon || '/avatar.jpg');
     const schema = buildHomeSchema(profile, baseUrl, description);
@@ -265,8 +246,8 @@ const injectNotFoundAppShell = async (req, res, next) => {
 
     try {
         const [template, profile] = await Promise.all([readSpaIndexHtml(), readProfile()]);
-        const baseUrl = resolveBaseUrl(profile);
-        const siteName = String(profile?.title ?? '').trim() || 'Hamlog';
+        const baseUrl = resolveSiteBaseUrl(profile);
+        const siteName = String(profile?.title ?? '').trim() || DEFAULT_SITE_TITLE;
         const requestedPath = req.originalUrl.startsWith('/') ? req.originalUrl : `/${req.originalUrl}`;
         let html = injectSearchVerificationMeta(template);
         html = replaceHeadTag(
@@ -303,7 +284,7 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false
 }));
 app.use(createHttpsRedirectMiddleware({
-    resolveCanonicalBaseUrl: async () => resolveBaseUrl(await readProfile())
+    resolveCanonicalBaseUrl: async () => resolveSiteBaseUrl(await readProfile())
 }));
 app.use(cors((req, callback) => {
     callback(null, resolveCorsOptions(req));

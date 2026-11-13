@@ -1371,6 +1371,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
         ...defaultProfile,
         title: 'SEO Site',
         name: 'SEO Author',
+        siteUrl: 'https://blog.example.test',
         description: '검색 엔진과 방문자 모두를 위한 클라우드 엔지니어링 기술 기록입니다.'
     });
 
@@ -1426,7 +1427,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
             tags: [],
             status: 'published',
             seo: {
-                canonicalUrl: 'https://tech.hamwoo.co.kr/guides/canonical-local',
+                canonicalUrl: 'https://blog.example.test/guides/canonical-local',
                 description: '사용자가 직접 작성한 canonical 게시글 SEO 설명'
             },
             sections: []
@@ -1490,7 +1491,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
     assert.match(visibleMetaResponse.text, /<meta name="description" content="desc with &quot;quotes&quot; &amp; &lt;tags&gt; Visible body" \/>/);
     assert.match(
         visibleMetaResponse.text,
-        /<link rel="canonical" href="https:\/\/tech\.hamwoo\.co\.kr\/posts\/meta-visible-post" \/>/
+        /<link rel="canonical" href="https:\/\/blog\.example\.test\/posts\/meta-visible-post" \/>/
     );
     assert.match(
         visibleMetaResponse.text,
@@ -1506,11 +1507,11 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
     );
     assert.match(
         visibleMetaResponse.text,
-        /"mainEntityOfPage":"https:\/\/tech\.hamwoo\.co\.kr\/posts\/meta-visible-post"/
+        /"mainEntityOfPage":"https:\/\/blog\.example\.test\/posts\/meta-visible-post"/
     );
     assert.match(visibleMetaResponse.text, /"name":"SEO Author"/);
     assert.match(visibleMetaResponse.text, /"name":"SEO Site"/);
-    assert.match(visibleMetaResponse.text, /<link rel="icon" href="https:\/\/tech\.hamwoo\.co\.kr\/favicon\.svg" \/>/);
+    assert.match(visibleMetaResponse.text, /<link rel="icon" href="https:\/\/blog\.example\.test\/favicon\.svg" \/>/);
     assert.match(
         visibleMetaResponse.text,
         /<main class="public-site prerender-shell" data-prerendered="post">/
@@ -1557,10 +1558,10 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
     const localCanonicalResponse = await request(app).get('/posts/canonical-local-post');
     assert.equal(localCanonicalResponse.status, 200);
     assert.match(localCanonicalResponse.text, /<meta name="description" content="사용자가 직접 작성한 canonical 게시글 SEO 설명" \/>/);
-    assert.match(localCanonicalResponse.text, /<link rel="canonical" href="https:\/\/tech\.hamwoo\.co\.kr\/guides\/canonical-local" \/>/);
-    assert.match(localCanonicalResponse.text, /<meta property="og:url" content="https:\/\/tech\.hamwoo\.co\.kr\/guides\/canonical-local" \/>/);
-    assert.match(localCanonicalResponse.text, /"mainEntityOfPage":"https:\/\/tech\.hamwoo\.co\.kr\/guides\/canonical-local"/);
-    assert.match(localCanonicalResponse.text, /"url":"https:\/\/tech\.hamwoo\.co\.kr\/guides\/canonical-local"/);
+    assert.match(localCanonicalResponse.text, /<link rel="canonical" href="https:\/\/blog\.example\.test\/guides\/canonical-local" \/>/);
+    assert.match(localCanonicalResponse.text, /<meta property="og:url" content="https:\/\/blog\.example\.test\/guides\/canonical-local" \/>/);
+    assert.match(localCanonicalResponse.text, /"mainEntityOfPage":"https:\/\/blog\.example\.test\/guides\/canonical-local"/);
+    assert.match(localCanonicalResponse.text, /"url":"https:\/\/blog\.example\.test\/guides\/canonical-local"/);
 
     const externalCanonicalResponse = await request(app).get('/posts/canonical-external-post');
     assert.equal(externalCanonicalResponse.status, 200);
@@ -1588,7 +1589,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
     assert.match(rssResponse.text, /<!\[CDATA\[A "quoted" <title>\]\]>/);
     assert.match(rssResponse.text, /meta-visible-post/);
     assert.match(rssResponse.text, /meta-scheduled-visible/);
-    assert.match(rssResponse.text, /https:\/\/tech\.hamwoo\.co\.kr\/uploads\/map\.png/);
+    assert.match(rssResponse.text, /https:\/\/blog\.example\.test\/uploads\/map\.png/);
     assert.match(rssResponse.text, /<dc:creator><!\[CDATA\[SEO Author\]\]><\/dc:creator>/);
     assert.doesNotMatch(rssResponse.text, /meta-future-post/);
     assert.doesNotMatch(rssResponse.text, /meta-draft-post/);
@@ -1600,7 +1601,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
     const sitemapResponse = await request(app).get('/sitemap.xml');
     assert.equal(sitemapResponse.status, 200);
     assert.match(sitemapResponse.headers['content-type'], /^application\/xml; charset=utf-8$/);
-    assert.match(sitemapResponse.text, /<loc>https:\/\/tech\.hamwoo\.co\.kr\/<\/loc>/);
+    assert.match(sitemapResponse.text, /<loc>https:\/\/blog\.example\.test\/<\/loc>/);
     assert.doesNotMatch(sitemapResponse.text, /\/graph<\/loc>/);
     assert.match(sitemapResponse.text, /meta-visible-post/);
     assert.match(sitemapResponse.text, /<lastmod>2026-03-08<\/lastmod>/);
@@ -1610,7 +1611,7 @@ test('seo routes ignore non-public posts, escape meta values, and include visibl
         /\/posts\/%ED%95%9C%EA%B8%80-%EC%82%AC%EC%9D%B4%ED%8A%B8%EB%A7%B5-%EA%B2%BD%EB%A1%9C/
     );
     assert.doesNotMatch(sitemapResponse.text, /한글-사이트맵-경로/);
-    assert.match(sitemapResponse.text, /https:\/\/tech\.hamwoo\.co\.kr\/guides\/canonical-local/);
+    assert.match(sitemapResponse.text, /https:\/\/blog\.example\.test\/guides\/canonical-local/);
     assert.doesNotMatch(sitemapResponse.text, /canonical-local-post/);
     assert.doesNotMatch(sitemapResponse.text, /canonical-external-post/);
     assert.doesNotMatch(sitemapResponse.text, /example\.com\/original-post/);
@@ -1694,8 +1695,11 @@ test('home page reflects profile SEO metadata and search engine verification', a
         await writeProfile({
             ...defaultProfile,
             title: 'HamLog Ops',
+            titleSuffix: '운영 기록',
             name: 'Hamwoo',
             description: '운영 관점의 클라우드 엔지니어링 기록입니다.',
+            siteUrl: 'https://blog.example.test',
+            keywords: ['SRE', 'AWS'],
             favicon: '/uploads/favicon-home.png',
             profileImage: '/uploads/profile-home.png',
             stack: ['Terraform', 'AWS']
@@ -1733,22 +1737,23 @@ test('home page reflects profile SEO metadata and search engine verification', a
         assert.match(response.headers['content-security-policy'], /default-src 'self'/);
         assert.match(response.headers['content-security-policy'], /object-src 'none'/);
         assert.match(response.headers['content-security-policy'], /frame-ancestors 'self'/);
-        assert.match(response.text, /<title>HamLog Ops \| 클라우드 엔지니어링과 개발 기록<\/title>/);
+        assert.match(response.text, /<title>HamLog Ops \| 운영 기록<\/title>/);
+        assert.match(response.text, /<meta name="keywords" content="SRE, AWS, Terraform" \/>/);
         assert.match(
             response.text,
             /<meta name="description" content="운영 관점의 클라우드 엔지니어링 기록입니다\. · Terraform, AWS 기술 스택" \/>/
         );
         assert.match(
             response.text,
-            /<meta property="og:image" content="https:\/\/tech\.hamwoo\.co\.kr\/uploads\/profile-home\.png" \/>/
+            /<meta property="og:image" content="https:\/\/blog\.example\.test\/uploads\/profile-home\.png" \/>/
         );
         assert.match(
             response.text,
-            /<link rel="icon" href="https:\/\/tech\.hamwoo\.co\.kr\/uploads\/favicon-home\.png" \/>/
+            /<link rel="icon" href="https:\/\/blog\.example\.test\/uploads\/favicon-home\.png" \/>/
         );
         assert.match(
             response.text,
-            /<link rel="canonical" href="https:\/\/tech\.hamwoo\.co\.kr" \/>/
+            /<link rel="canonical" href="https:\/\/blog\.example\.test" \/>/
         );
         assert.match(response.text, /Terraform/);
         assert.match(
@@ -1786,7 +1791,7 @@ test('home page reflects profile SEO metadata and search engine verification', a
         assert.match(robotsResponse.text, /User-agent: \*/);
         assert.match(robotsResponse.text, /Allow: \//);
         assert.match(robotsResponse.text, /DaumWebMasterTool: daum-pin-token/);
-        assert.match(robotsResponse.text, /Sitemap: https:\/\/tech\.hamwoo\.co\.kr\/sitemap\.xml/);
+        assert.match(robotsResponse.text, /Sitemap: https:\/\/blog\.example\.test\/sitemap\.xml/);
     } finally {
         if (previousGoogleVerification === undefined) {
             delete process.env.GOOGLE_SITE_VERIFICATION;
@@ -1818,6 +1823,7 @@ test('home page replaces the legacy avatar favicon with the lightweight static f
     await writeProfile({
         ...defaultProfile,
         title: 'Legacy Favicon Site',
+        siteUrl: 'https://blog.example.test',
         favicon: '/avatar.jpg'
     });
 
@@ -1826,10 +1832,10 @@ test('home page replaces the legacy avatar favicon with the lightweight static f
     assert.equal(response.status, 200);
     assert.match(
         response.text,
-        /<link rel="icon" href="https:\/\/tech\.hamwoo\.co\.kr\/favicon\.svg" \/>/
+        /<link rel="icon" href="https:\/\/blog\.example\.test\/favicon\.svg" \/>/
     );
     assert.match(
         response.text,
-        /<link rel="apple-touch-icon" href="https:\/\/tech\.hamwoo\.co\.kr\/favicon\.svg" \/>/
+        /<link rel="apple-touch-icon" href="https:\/\/blog\.example\.test\/favicon\.svg" \/>/
     );
 });

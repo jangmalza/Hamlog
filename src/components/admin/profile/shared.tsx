@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { X } from 'lucide-react';
 
 interface SectionCardProps {
   eyebrow: string;
@@ -42,6 +43,72 @@ export const SectionCard = ({
     {children}
   </section>
 );
+
+interface TagListInputProps {
+  values: string[];
+  onChange: (values: string[]) => void;
+  emptyPlaceholder: string;
+  morePlaceholder: string;
+  ariaLabel?: string;
+}
+
+// Enter or a comma adds the typed tag; Backspace on an empty input removes the last one.
+export const TagListInput = ({
+  values,
+  onChange,
+  emptyPlaceholder,
+  morePlaceholder,
+  ariaLabel
+}: TagListInputProps) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      const nextTag = inputValue.trim();
+      if (nextTag && !values.includes(nextTag)) {
+        onChange([...values, nextTag]);
+        setInputValue('');
+      }
+      return;
+    }
+
+    if (event.key === 'Backspace' && !inputValue && values.length > 0) {
+      onChange(values.slice(0, -1));
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-[color:var(--border)] bg-[var(--surface-muted)] p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {values.map(tag => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--text)]"
+          >
+            {tag}
+            <button
+              type="button"
+              aria-label={`${tag} 삭제`}
+              onClick={() => onChange(values.filter(value => value !== tag))}
+              className="rounded-md p-0.5 text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-red-500 dark:hover:text-red-300"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          value={inputValue}
+          aria-label={ariaLabel}
+          onChange={event => setInputValue(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={values.length ? morePlaceholder : emptyPlaceholder}
+          className="min-w-[200px] flex-1 bg-transparent px-1 py-2 text-sm text-[var(--text)] outline-none"
+        />
+      </div>
+    </div>
+  );
+};
 
 export const Field = ({ label, hint, className = '', children }: FieldProps) => (
   <label className={`block text-xs uppercase tracking-[0.18em] text-[var(--text-muted)] ${className}`}>
