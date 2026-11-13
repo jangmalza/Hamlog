@@ -1,8 +1,18 @@
+import { createHash, timingSafeEqual } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { ADMIN_PASSWORD, AUTH_MODE, JWT_SECRET } from '../config/auth.js';
 import { buildClearCookieOptions, buildCookieOptions } from '../config/cookies.js';
 
 const AUTH_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000;
+
+// Hashing both sides gives equal-length buffers, so the comparison time does
+// not reveal how much of the password matched or how long it is.
+const digest = (value) => createHash('sha256').update(value, 'utf8').digest();
+const ADMIN_PASSWORD_DIGEST = digest(ADMIN_PASSWORD);
+
+const isAdminPassword = (password) => (
+    typeof password === 'string' && timingSafeEqual(digest(password), ADMIN_PASSWORD_DIGEST)
+);
 
 export const login = (req, res) => {
     if (AUTH_MODE === 'cloudflare-access') {
@@ -10,7 +20,7 @@ export const login = (req, res) => {
     }
     const { password } = req.body ?? {};
 
-    if (password !== ADMIN_PASSWORD) {
+    if (!isAdminPassword(password)) {
         return res.status(401).json({ message: '비밀번호가 올바르지 않습니다.' });
     }
 

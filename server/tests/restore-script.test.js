@@ -292,11 +292,13 @@ test('restore verifies using the container image when the host has no Node.js', 
   const f = await fixture(t);
   const docker = await mockDocker(f);
   // Provide the host's existing shell/core tools but deliberately omit node.
-  for (const command of ['bash', 'cat', 'chmod', 'cp', 'gzip', 'id', 'mkdir', 'mktemp', 'realpath', 'rm', 'rmdir', 'sha256sum', 'tar', 'basename']) {
+  for (const command of ['bash', 'cat', 'chmod', 'cp', 'gzip', 'id', 'mkdir', 'mktemp', 'realpath', 'rm', 'rmdir', 'sha256sum', 'tar', 'basename', 'dirname']) {
     const executable = (await execFileAsync('sh', ['-c', `command -v ${command}`])).stdout.trim();
     await symlink(executable, path.join(docker.bin, command));
   }
-  await execFileAsync('bash', [restoreScript, f.archive, f.target], { env: { ...docker.env, PATH: docker.bin } });
+  const result = await execFileAsync('bash', [restoreScript, f.archive, f.target], { env: { ...docker.env, PATH: docker.bin } });
+  // Older bash tolerates `cd ""` after a missing tool, so require every tool to resolve.
+  assert.doesNotMatch(result.stderr, /command not found/);
   assert.match(await readFile(docker.log, 'utf8'), /--entrypoint node .* \/verify-data.js/);
   assert.equal(await readFile(path.join(f.target, 'uploads/cover.txt'), 'utf8'), 'backup image');
 });
