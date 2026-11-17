@@ -1,11 +1,5 @@
 import { useLayoutEffect, type ReactNode } from 'react';
-
-// Matches PRERENDER_ROOT_ID in server/utils/seoHtml.js.
-const PRERENDER_ROOT_ID = 'prerender-root';
-
-const hasPrerenderedPage = () => (
-  typeof document !== 'undefined' && document.getElementById(PRERENDER_ROOT_ID) !== null
-);
+import { hasPrerenderedPage, removePrerenderedPage } from '../utils/prerenderState';
 
 /**
  * Removes the server-rendered page once the client page in the same commit is ready.
@@ -15,7 +9,7 @@ const hasPrerenderedPage = () => (
  */
 export function PrerenderHandoff() {
   useLayoutEffect(() => {
-    document.getElementById(PRERENDER_ROOT_ID)?.remove();
+    removePrerenderedPage();
   }, []);
   return null;
 }

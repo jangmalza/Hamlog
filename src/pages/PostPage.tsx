@@ -27,6 +27,7 @@ import type { Post } from '../types/blog';
 import { TableOfContents } from '../components/TableOfContents';
 import { appBootstrapData } from '../utils/appBootstrap';
 import { resolveSiteBaseUrl } from '../utils/siteUrl';
+import { SkipToContent } from '../components/SkipToContent';
 import { getPostMetaDescription } from '../utils/postSeo';
 import PostSeriesNavigation from '../components/PostSeriesNavigation';
 
@@ -320,6 +321,7 @@ const PostPage: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="public-site min-h-screen text-[var(--text)]">
+        <SkipToContent />
         <SiteHeader
           profile={profile}
           eyebrow={categoryPathLabel}
@@ -344,7 +346,7 @@ const PostPage: React.FC = () => {
               </div>
             </aside>
 
-            <main className="mx-auto w-full min-w-0 max-w-[960px] space-y-8 2xl:mx-0 2xl:max-w-none">
+            <main id="main-content" tabIndex={-1} className="mx-auto w-full min-w-0 max-w-[960px] space-y-8 outline-none 2xl:mx-0 2xl:max-w-none">
               <Link
                 to={returnTo}
                 className="group inline-flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--accent)]"

@@ -11,6 +11,7 @@ import { useHomeData } from '../hooks/useHomeData';
 import { useHomePostFilter } from '../hooks/useHomePostFilter';
 import { DEFAULT_SITE_DESCRIPTION, formatHomeTitle, resolveHomeKeywords } from '../../server/utils/siteIdentity.js';
 import { resolveSiteBaseUrl } from '../utils/siteUrl';
+import { SkipToContent } from '../components/SkipToContent';
 
 const HomePage = () => {
     // 1. Data Fetching Hook
@@ -85,13 +86,14 @@ const HomePage = () => {
     return (
         <ErrorBoundary>
             <div className="public-site min-h-screen text-[var(--text)]">
+                <SkipToContent />
                 <HomeHeader
                     profile={profile}
                     postCount={sortedPosts.length}
                     categoryCount={categoryTree.allNames.length}
                 />
 
-                <main>
+                <main id="main-content" tabIndex={-1} className="outline-none">
                     {!hasLoaded && !error && posts.length === 0 && (
                         <section className="mx-auto max-w-6xl px-4 py-12">
                             <LoadingSpinner message="글 불러오는 중..." />

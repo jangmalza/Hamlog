@@ -31,6 +31,45 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
 
     // Delete State
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    // The button that opened the delete dialog gets focus back when it closes.
+    const deleteTriggerRef = useRef<HTMLElement | null>(null);
+    const deleteDialogRef = useRef<HTMLFormElement>(null);
+    const deleteDialogWasOpen = useRef(false);
+
+    useEffect(() => {
+        if (deleteTargetId) {
+            deleteDialogWasOpen.current = true;
+            return;
+        }
+        if (!deleteDialogWasOpen.current) return;
+        deleteDialogWasOpen.current = false;
+        const trigger = deleteTriggerRef.current;
+        deleteTriggerRef.current = null;
+        if (trigger?.isConnected) trigger.focus();
+    }, [deleteTargetId]);
+
+    const handleDeleteDialogKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            setDeleteTargetId(null);
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        // Keep keyboard focus inside the modal dialog.
+        const focusable = Array.from(
+            deleteDialogRef.current?.querySelectorAll<HTMLElement>('input, button:not([disabled])') ?? []
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    };
     const [deletePassword, setDeletePassword] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
@@ -167,12 +206,15 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
                                 <div className="flex items-center gap-2">
                                     <span>{formatDate(comment.createdAt)}</span>
                                     <button
-                                        onClick={() => {
+                                        type="button"
+                                        onClick={(event) => {
+                                            deleteTriggerRef.current = event.currentTarget;
                                             setDeleteTargetId(comment.id);
                                             setDeletePassword('');
                                             setDeleteError('');
                                         }}
-                                        className="text-[10px] uppercase opacity-0 group-hover:opacity-100 transition-opacity hover:text-[var(--accent-strong)]"
+                                        aria-label={`${comment.author}님의 댓글 삭제`}
+                                        className="text-[10px] uppercase opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity hover:text-[var(--accent-strong)]"
                                     >
                                         삭제
                                     </button>
@@ -192,6 +234,8 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
                 <div className="grid gap-3 sm:grid-cols-2">
                     <input
                         type="text"
+                        aria-label="이름"
+                        autoComplete="nickname"
                         placeholder="이름"
                         value={author}
                         onChange={e => setAuthor(e.target.value)}
@@ -201,6 +245,8 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
                     />
                     <input
                         type="password"
+                        aria-label="댓글 비밀번호"
+                        autoComplete="off"
                         placeholder="비밀번호"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
@@ -210,6 +256,7 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
                     />
                 </div>
                 <textarea
+                    aria-label="댓글 내용"
                     placeholder="내용을 입력하세요..."
                     value={content}
                     onChange={e => setContent(e.target.value)}
@@ -241,10 +288,23 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
             {/* Delete Modal (Simple Inline) */}
             {deleteTargetId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="bg-[var(--bg)] rounded-xl p-6 w-full max-w-xs border border-[var(--border)]">
-                        <h4 className="text-sm font-semibold mb-4">댓글 삭제</h4>
+                    <form
+                        ref={deleteDialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="comment-delete-title"
+                        onKeyDown={handleDeleteDialogKeyDown}
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            void handleDelete();
+                        }}
+                        className="bg-[var(--bg)] rounded-xl p-6 w-full max-w-xs border border-[var(--border)]"
+                    >
+                        <h4 id="comment-delete-title" className="text-sm font-semibold mb-4">댓글 삭제</h4>
                         <input
                             type="password"
+                            aria-label="댓글 비밀번호"
+                            autoComplete="off"
                             placeholder="비밀번호 입력"
                             value={deletePassword}
                             onChange={e => setDeletePassword(e.target.value)}
@@ -252,23 +312,24 @@ export const Comments: React.FC<CommentsProps> = ({ postId }) => {
                             className="w-full bg-[var(--surface-muted)] border border-[var(--border)] rounded px-3 py-2 text-sm mb-2 focus:outline-none"
                             autoFocus
                         />
-                        {deleteError && <p className="text-xs text-red-500 dark:text-red-300 mb-2">{deleteError}</p>}
+                        {deleteError && <p role="alert" className="text-xs text-red-500 dark:text-red-300 mb-2">{deleteError}</p>}
                         <div className="flex justify-end gap-2 mt-4">
                             <button
+                                type="button"
                                 onClick={() => setDeleteTargetId(null)}
                                 className="px-3 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                             >
                                 취소
                             </button>
                             <button
-                                onClick={handleDelete}
+                                type="submit"
                                 disabled={deleting}
                                 className="px-3 py-1.5 bg-red-500 text-white rounded text-xs hover:bg-red-600 disabled:opacity-50"
                             >
                                 {deleting ? '삭제 중...' : '삭제'}
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             )}
         </div>

@@ -23,7 +23,8 @@ export default {
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
-        'slide-up': 'slideUp 0.5s ease-out',
+        // "both" keeps cards hidden during their stagger delay instead of blinking.
+        'slide-up': 'slideUp 0.5s ease-out both',
       },
       keyframes: {
         fadeIn: {

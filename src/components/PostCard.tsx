@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { isPrerenderHandoffPending } from '../utils/prerenderState';
 import type { Post } from '../data/blogData';
 import { formatDate } from '../utils/formatDate';
 import { buildImageVariantSrcSet, buildImageVariantUrl } from '../utils/imageUrl';
@@ -99,7 +100,8 @@ const PostImage: React.FC<PostImageProps> = ({ post, variant, eager = false, pri
         sizes={isFeatured
           ? '(min-width: 1024px) 352px, (min-width: 640px) 50vw, 100vw'
           : '(min-width: 768px) 160px, 100vw'}
-        alt={post.title}
+        // The title is the link text right next to it; repeating it adds noise for screen readers.
+        alt=""
         className={imgClass}
         width={imageWidth}
         height={imageHeight}
@@ -118,19 +120,23 @@ const PostImage: React.FC<PostImageProps> = ({ post, variant, eager = false, pri
 
 // Main Component
 const PostCard: React.FC<PostCardProps> = ({ post, variant = 'compact', index = 0, searchQuery, searchExcerpt, returnTo }) => {
-  const delay = `${index * 90}ms`;
+  // Cards that replace the server-rendered page are already on screen; animating them
+  // would hide content the reader is looking at. Later cards (filters, search) animate.
+  const [animateEntrance] = useState(() => !isPrerenderHandoffPending());
+  const delay = `${Math.min(index, 8) * 60}ms`;
   const isFeatured = variant === 'featured';
+  const entranceClass = animateEntrance ? 'animate-slide-up motion-reduce:animate-none' : '';
 
   const containerClass = isFeatured
-    ? "group flex h-full flex-col gap-2.5 border border-[color:var(--border)] bg-[var(--surface)] p-3.5 transition-colors hover:border-[color:var(--border-strong)] animate-slide-up"
-    : "group flex flex-col gap-3 border border-[color:var(--border)] bg-[var(--surface)] p-3.5 transition-colors hover:border-[color:var(--border-strong)] animate-slide-up";
+    ? `group flex h-full flex-col gap-2.5 border border-[color:var(--border)] bg-[var(--surface)] p-3.5 transition-colors hover:border-[color:var(--border-strong)] ${entranceClass}`
+    : `group flex flex-col gap-3 border border-[color:var(--border)] bg-[var(--surface)] p-3.5 transition-colors hover:border-[color:var(--border-strong)] ${entranceClass}`;
 
   return (
     <Link
       to={`/posts/${post.slug}`}
       state={returnTo ? { returnTo } : undefined}
       className={containerClass}
-      style={{ animationDelay: delay }}
+      style={animateEntrance ? { animationDelay: delay } : undefined}
     >
       {isFeatured ? (
         // Featured Layout

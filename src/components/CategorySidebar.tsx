@@ -43,8 +43,9 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
                         <button
                             type="button"
                             onClick={() => toggleCategory(node.id)}
-                            className="flex h-4 w-4 items-center justify-center rounded-sm text-[var(--text-muted)]"
-                            aria-label={`${node.name} 토글`}
+                            className="-m-1 flex h-6 w-6 items-center justify-center rounded-sm text-[var(--text-muted)]"
+                            aria-label={`${node.name} 하위 카테고리`}
+                            aria-expanded={isExpanded}
                         >
                             <svg
                                 className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
