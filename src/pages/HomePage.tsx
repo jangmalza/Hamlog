@@ -10,6 +10,7 @@ import { useSchema } from '../hooks/useSchema';
 import { useHomeData } from '../hooks/useHomeData';
 import { useHomePostFilter } from '../hooks/useHomePostFilter';
 import { DEFAULT_SITE_DESCRIPTION, formatHomeTitle, resolveHomeKeywords } from '../../server/utils/siteIdentity.js';
+import { resolveSiteBaseUrl } from '../utils/siteUrl';
 
 const HomePage = () => {
     // 1. Data Fetching Hook
@@ -64,7 +65,8 @@ const HomePage = () => {
         description: homeDescription,
         image: homeImage,
         keywords: homeKeywords,
-        url: profile.siteUrl,
+        // The base URL, never the current address with ?category=/&tag= filters.
+        url: resolveSiteBaseUrl(profile.siteUrl),
         type: 'website',
         favicon: homeFavicon,
         twitterHandle: profile.social.twitter,

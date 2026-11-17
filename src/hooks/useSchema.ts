@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { Post, SiteMeta } from '../types/blog';
 import { siteMeta } from '../data/blogData';
 import { getPostMetaDescription } from '../utils/postSeo';
+import { resolveSiteBaseUrl } from '../utils/siteUrl';
 
 interface UseSchemaProps {
     post: Post | undefined;
@@ -12,13 +13,7 @@ interface UseSchemaProps {
 const POST_SCHEMA_ATTRIBUTE = 'data-hamlog-schema';
 const POST_SCHEMA_VALUE = 'post';
 
-const getBaseUrl = (profile?: SiteMeta) => {
-    const configuredUrl = profile?.siteUrl?.trim();
-    if (configuredUrl && /^https?:\/\//i.test(configuredUrl)) {
-        return configuredUrl.replace(/\/+$/, '');
-    }
-    return typeof window !== 'undefined' ? window.location.origin : siteMeta.siteUrl;
-};
+const getBaseUrl = (profile?: SiteMeta) => resolveSiteBaseUrl(profile?.siteUrl);
 
 const toAbsoluteUrl = (value?: string, baseUrl = getBaseUrl()) => {
     if (!value) return '';

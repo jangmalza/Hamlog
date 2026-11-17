@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { resolveSiteBaseUrl } from '../utils/siteUrl';
 
 interface SeoProps {
     title?: string;
@@ -15,11 +16,13 @@ interface SeoProps {
 
 export type RobotsDirective = 'index, follow' | 'noindex, nofollow';
 
+// Relative URLs resolve against the site base like the server-rendered tags do.
 const toAbsoluteUrl = (value?: string) => {
     if (!value) return '';
     if (/^https?:\/\//i.test(value)) return value;
-    if (typeof window === 'undefined') return value;
-    return `${window.location.origin}${value.startsWith('/') ? '' : '/'}${value}`;
+    const baseUrl = resolveSiteBaseUrl();
+    if (!baseUrl) return value;
+    return `${baseUrl}${value.startsWith('/') ? '' : '/'}${value}`;
 };
 
 const setMetaTag = (key: string, content: string, attr: 'name' | 'property') => {

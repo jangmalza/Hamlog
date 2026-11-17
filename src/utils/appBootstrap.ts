@@ -5,6 +5,8 @@ interface BootstrapBase {
   profile: SiteMeta;
   posts: Post[];
   categories: Category[];
+  // Present when the site URL is configured (profile or SITE_URL).
+  siteUrl?: string;
 }
 
 export type AppBootstrapData =

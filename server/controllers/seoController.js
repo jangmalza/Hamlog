@@ -5,7 +5,7 @@ import { filterPublicPosts, findPublicPostBySlug } from '../utils/postVisibility
 import { toPostSummaries } from '../utils/postSummaries.js';
 import { readSpaIndexHtml, resolveSpaIndexPath } from '../utils/spaIndex.js';
 import { buildRobotsTxt, injectSearchVerificationMeta } from '../utils/searchVerification.js';
-import { resolveSiteBaseUrl } from '../config/site.js';
+import { hasConfiguredSiteUrl, resolveSiteBaseUrl } from '../config/site.js';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../utils/siteIdentity.js';
 import {
   buildNotFoundPrerenderContent,
@@ -302,7 +302,8 @@ export const injectPostMeta = async (req, res) => {
       profile,
       posts: toPostSummaries(publicPosts),
       categories,
-      post: toPostBootstrap(post, description)
+      post: toPostBootstrap(post, description),
+      ...(hasConfiguredSiteUrl(profile) ? { siteUrl: baseUrl } : {})
     });
 
     res.send(injectSearchVerificationMeta(html));

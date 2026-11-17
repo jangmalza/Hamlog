@@ -33,7 +33,7 @@ import { searchRateLimiter } from './middleware/rateLimit.js';
 import { handleBodyParserError } from './middleware/bodyParser.js';
 import { readSpaIndexHtml } from './utils/spaIndex.js';
 import { createDistCacheHeaders, setUploadCacheHeaders } from './utils/staticCache.js';
-import { resolveSiteBaseUrl } from './config/site.js';
+import { hasConfiguredSiteUrl, resolveSiteBaseUrl } from './config/site.js';
 import {
     DEFAULT_SITE_DESCRIPTION,
     DEFAULT_SITE_TITLE,
@@ -193,7 +193,9 @@ const injectHomeSeoMeta = (html, profile, posts = [], categories = []) => {
         route: 'home',
         profile,
         posts,
-        categories
+        categories,
+        // Lets the client use the same canonical base, including a SITE_URL-only setup.
+        ...(hasConfiguredSiteUrl(profile) ? { siteUrl: baseUrl } : {})
     });
 
     return injectSearchVerificationMeta(nextHtml);

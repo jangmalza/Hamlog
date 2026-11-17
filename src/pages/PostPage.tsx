@@ -26,6 +26,7 @@ import { ApiError } from '../api/client';
 import type { Post } from '../types/blog';
 import { TableOfContents } from '../components/TableOfContents';
 import { appBootstrapData } from '../utils/appBootstrap';
+import { resolveSiteBaseUrl } from '../utils/siteUrl';
 import { getPostMetaDescription } from '../utils/postSeo';
 import PostSeriesNavigation from '../components/PostSeriesNavigation';
 
@@ -226,7 +227,7 @@ const PostPage: React.FC = () => {
     keywords: post ? (post.seo?.keywords?.length ? post.seo.keywords : post.tags) : [],
     url: post
       ? post.seo?.canonicalUrl
-        || `${typeof window !== 'undefined' ? window.location.origin : siteMeta.siteUrl}/posts/${encodeURIComponent(post.slug)}`
+        || `${resolveSiteBaseUrl(profile.siteUrl)}/posts/${encodeURIComponent(post.slug)}`
       : typeof window !== 'undefined'
         ? window.location.href
         : siteMeta.siteUrl,
