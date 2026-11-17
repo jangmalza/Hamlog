@@ -155,16 +155,25 @@ const SyntaxHighlighter = lazy(async () => {
     css,
     javascript,
     json,
-    typescript
+    typescript,
+    python,
+    sql,
+    markdown,
+    yaml
   ] = await Promise.all([
     import('react-syntax-highlighter/dist/esm/prism-light'),
-    import('react-syntax-highlighter/dist/esm/styles/prism'),
+    // Only the theme in use; the styles/prism index bundles all 44 themes.
+    import('react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus'),
     import('react-syntax-highlighter/dist/esm/languages/prism/markup'),
     import('react-syntax-highlighter/dist/esm/languages/prism/bash'),
     import('react-syntax-highlighter/dist/esm/languages/prism/css'),
     import('react-syntax-highlighter/dist/esm/languages/prism/javascript'),
     import('react-syntax-highlighter/dist/esm/languages/prism/json'),
-    import('react-syntax-highlighter/dist/esm/languages/prism/typescript')
+    import('react-syntax-highlighter/dist/esm/languages/prism/typescript'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/python'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/sql'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/markdown'),
+    import('react-syntax-highlighter/dist/esm/languages/prism/yaml')
   ]);
   const PrismHighlighter = syntaxModule.default as SyntaxHighlighterComponent;
 
@@ -178,10 +187,18 @@ const SyntaxHighlighter = lazy(async () => {
   PrismHighlighter.registerLanguage('json', json.default);
   PrismHighlighter.registerLanguage('typescript', typescript.default);
   PrismHighlighter.registerLanguage('ts', typescript.default);
+  // Python, SQL and Markdown are offered by the editor; YAML arrives with pasted Markdown.
+  PrismHighlighter.registerLanguage('python', python.default);
+  PrismHighlighter.registerLanguage('py', python.default);
+  PrismHighlighter.registerLanguage('sql', sql.default);
+  PrismHighlighter.registerLanguage('markdown', markdown.default);
+  PrismHighlighter.registerLanguage('md', markdown.default);
+  PrismHighlighter.registerLanguage('yaml', yaml.default);
+  PrismHighlighter.registerLanguage('yml', yaml.default);
 
   return {
     default: (props: SyntaxHighlighterProps) => (
-      <PrismHighlighter {...props} style={styleModule.vscDarkPlus} />
+      <PrismHighlighter {...props} style={styleModule.default} />
     )
   };
 });
@@ -192,8 +209,13 @@ const MermaidContent = lazy(() => import('./MermaidContent'));
 const CodeBlock = ({ language, code }: { language: string; code: string }) => {
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      // Clipboard access can be denied; do not claim success.
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -209,19 +231,20 @@ const CodeBlock = ({ language, code }: { language: string; code: string }) => {
           </span>
         </div>
         <button
-          onClick={handleCopy}
+          type="button"
+          onClick={() => void handleCopy()}
           className="flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-[10px] font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-          aria-label="Copy code"
+          aria-label={copied ? '코드 복사됨' : '코드 복사'}
         >
           {copied ? (
             <>
               <Check size={12} className="text-green-400" />
-              <span className="text-green-400">Copied</span>
+              <span className="text-green-400">복사됨</span>
             </>
           ) : (
             <>
               <Copy size={12} />
-              <span>Copy</span>
+              <span>복사</span>
             </>
           )}
         </button>
@@ -423,12 +446,9 @@ const PostContent: React.FC<PostContentProps> = ({ contentHtml }) => {
           const languageMatch = className.match(/language-(\w+)/);
           const language = languageMatch ? languageMatch[1] : 'plaintext';
 
-          let codeContent = (codeNode.children ?? []).map(getCodeText).join('');
-          codeContent = codeContent
-            .replace(/&gt;/g, '>')
-            .replace(/&lt;/g, '<')
-            .replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&');
+          // The HTML parser already decoded entities; decoding again would turn a
+          // literal "&lt;" written in a code example into "<".
+          const codeContent = (codeNode.children ?? []).map(getCodeText).join('');
 
           const normalizedCode = codeContent.trimEnd();
           const mermaidSource = resolveMermaidCodeBlockSource(language, normalizedCode);
