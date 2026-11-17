@@ -2,7 +2,8 @@ name: Docker Deploy
 
 concurrency:
   group: docker-deploy-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer push to the same PR replaces an older run; main releases never cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
@@ -11,21 +12,25 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-push:
+  # Runs repository and npm code, so it only gets a read-only token that is not
+  # written to .git/config. Nothing in this job can publish an image.
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
-      packages: write
-    
+
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
 
@@ -49,51 +54,106 @@ jobs:
 
       - name: E2E Test
         run: npm run test:e2e
-      
-      - name: Log in to the Container registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v4
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Extract metadata (tags, labels) for Docker
+          name: playwright-artifacts-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Builds the production image and smoke-tests it, still without registry access.
+  # The build cache it writes lets the publish job reuse these exact layers.
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract metadata (labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short,prefix=sha-
-          
+
       - name: Build Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
           load: true
           push: false
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: hamlog-smoke:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Smoke test Docker runtime
-        run: |
-          IMAGE_TAG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | tail -n 1)
-          bash scripts/smoke-docker.sh "$IMAGE_TAG"
+        run: bash scripts/smoke-docker.sh "hamlog-smoke:${{ github.sha }}"
+
+  # The only job that can write to GHCR. It runs no repository or npm code on the
+  # runner: layers come from the image job's cache (a rebuild would run inside
+  # BuildKit, which never sees the registry login), and actions are pinned to
+  # commit SHAs so a moved tag cannot run with the write token.
+  publish:
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short,prefix=sha-
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push Docker image
-        if: github.event_name != 'pull_request'
-        run: |
-          while IFS= read -r image_tag; do
-            [ -n "$image_tag" ] || continue
-            docker push "$image_tag"
-          done <<< "${{ steps.meta.outputs.tags }}"
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
 
   # The production server pulls and deploys the published image itself
   # (scripts/server-deploy.sh via hamlog-deploy.timer); no job runs on it.
   # This job only reports when the public site serves the new commit.
   verify-release:
-    needs: build-and-push
+    needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25

@@ -7,18 +7,22 @@ concurrency:
 on:
   push:
     branches: [ develop ]
+  # PRs into main run the same suite in docker-deploy.yml, so only develop PRs run here.
   pull_request:
-    branches: [ develop, main ]
+    branches: [ develop ]
   workflow_dispatch:
 
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v6
