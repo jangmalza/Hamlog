@@ -1,4 +1,5 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { resolveClientIp } from '../utils/clientIp.js';
 
 const parsePositiveInt = (value, fallback) => {
     const parsed = Number.parseInt(String(value ?? ''), 10);
@@ -7,7 +8,10 @@ const parsePositiveInt = (value, fallback) => {
 
 const commonOptions = {
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    // Count each visitor separately even behind the local tunnel; IPv6 visitors
+    // are grouped by /56 prefix like the library default.
+    keyGenerator: (req) => ipKeyGenerator(resolveClientIp(req))
 };
 
 export const loginRateLimiter = rateLimit({

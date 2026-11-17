@@ -178,6 +178,10 @@ Cloudflare Access 로그인 통합은 [설정 가이드](cloudflare-access.md)�
 - `TRUST_PROXY` (optional, default: `0`)
   - Express 앞에 신뢰할 수 있는 reverse proxy가 있을 때만 hop 수 또는 IP/subnet을 지정
   - 예: 프록시가 정확히 한 단계면 `1`, 직접 노출이면 `0`
+  - 요청 횟수 제한은 요청이 내부 주소(루프백·사설망·Docker 브리지)에서 들어오면 Cloudflare의
+    `CF-Connecting-IP`를 방문자 주소로 사용합니다. 그래서 `TRUST_PROXY=0`으로 터널 뒤에서 운영해도
+    방문자마다 따로 제한됩니다. 이 헤더는 내부 주소에서 온 요청에만 적용되므로, 앱 포트를 외부에 직접
+    열지 말고 기본값처럼 `127.0.0.1`에만 연결하세요.
 - `SITE_URL` (optional, production에서 권장)
   - canonical, Open Graph, 사이트맵, RSS, `robots.txt`에 쓰이는 대표 주소. 예: `https://blog.example.com`
   - 관리자 **자기소개 → 사이트 주소**에 값이 있으면 그 값이 우선합니다.
