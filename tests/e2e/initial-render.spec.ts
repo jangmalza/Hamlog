@@ -162,3 +162,58 @@ test('direct production post preserves rich editor content through bootstrap', a
     }
   }
 });
+
+test('production post keeps the prerendered article until the post page is ready', async ({ page, request }) => {
+  const login = await request.post(`${backendOrigin}/api/auth/login`, {
+    data: { password: process.env.ADMIN_PASSWORD ?? 'e2e-password' }
+  });
+  expect(login.ok()).toBe(true);
+  const cookie = login.headers()['set-cookie']?.split(';', 1)[0] ?? '';
+  const slug = `prerender-handoff-${Date.now()}`;
+  const created = await request.post(`${backendOrigin}/api/posts`, {
+    headers: { Cookie: cookie, Origin: backendOrigin },
+    data: {
+      slug, title: slug, summary: '미리 그린 글이 실제 글 화면으로 바로 넘어가는지 확인합니다.',
+      category: '미분류', tags: [], status: 'published', publishedAt: '2026-01-01', sections: [],
+      contentHtml: '<h2>첫 절</h2><p>본문입니다.</p>'
+    }
+  });
+  expect(created.status()).toBe(201);
+  const { id } = await created.json() as { id: string };
+
+  // The post HTML starts downloading the lazy post page with the entry script,
+  // and the build manifest that lists the chunks is not served.
+  const postHtml = await (await request.get(`${backendOrigin}/posts/${slug}`)).text();
+  expect(postHtml).toMatch(/<link rel="modulepreload" crossorigin href="\/assets\/PostPage-[^"]+\.js" \/>/);
+  expect((await request.get(`${backendOrigin}/.vite/manifest.json`)).status()).toBe(404);
+
+  // Hold back only the post page chunk; everything else loads normally.
+  let releasePostPage = () => {};
+  const postPageGate = new Promise<void>(resolve => { releasePostPage = resolve; });
+  await page.route(/\/assets\/PostPage-[^/]+\.js(?:\?.*)?$/, async route => {
+    await postPageGate;
+    await route.continue();
+  });
+
+  try {
+    await page.goto(`${backendOrigin}/posts/${slug}`, { waitUntil: 'commit' });
+    const prerendered = page.locator('[data-prerendered="post"]');
+    await expect(prerendered).toBeVisible();
+    // The client app has started (React root mounted) but the post page is still loading.
+    await expect(page.locator('#root')).toBeAttached();
+    await page.waitForTimeout(500);
+    await expect(prerendered).toBeVisible();
+    await expect(page.getByText('페이지 불러오는 중...', { exact: true })).toHaveCount(0);
+
+    releasePostPage();
+    await expect(page.locator('[data-prerendered]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: slug })).toBeVisible();
+    await expect(page.getByText('페이지 불러오는 중...', { exact: true })).toHaveCount(0);
+  } finally {
+    releasePostPage();
+    const removed = await request.delete(`${backendOrigin}/api/posts/${id}`, {
+      headers: { Cookie: cookie, Origin: backendOrigin }
+    });
+    expect(removed.status()).toBe(204);
+  }
+});

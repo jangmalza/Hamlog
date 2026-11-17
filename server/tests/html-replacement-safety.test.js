@@ -28,7 +28,7 @@ test('HTML helpers insert replacement text literally', () => {
     assert.ok(appended.includes(`<meta name="x" content="${DOLLAR_PATTERNS}">\n</head>`));
 
     const body = injectAppRootContent(shell, `<p>${DOLLAR_PATTERNS}</p>`);
-    assert.ok(body.includes(`<div id="root"><p>${DOLLAR_PATTERNS}</p></div>`));
+    assert.ok(body.includes(`<div id="prerender-root"><p>${DOLLAR_PATTERNS}</p></div><div id="root"></div>`));
     assert.equal((body.match(/<div id="root">/g) || []).length, 1);
 
     const data = injectJsonData(shell, 'hamlog-bootstrap', { text: DOLLAR_PATTERNS });

@@ -62,6 +62,9 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
+      // dist/.vite/manifest.json lets the server preload a lazy page's chunks
+      // (server/utils/clientManifest.js); server/app.js does not serve dot directories.
+      manifest: true,
       rollupOptions: {
         output: {
           manualChunks(id) {

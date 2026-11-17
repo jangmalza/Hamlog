@@ -24,10 +24,16 @@ export const replaceHeadTag = (html, pattern, replacement) => (
 
 export const removeHeadTag = (html, pattern) => html.replace(pattern, '');
 
+// The prerendered page sits next to #root rather than inside it: createRoot clears
+// #root on its first commit, which used to swap the article for a loading spinner
+// while the page chunk downloaded. The client removes #prerender-root once the
+// real page has rendered (src/components/PrerenderHandoff.tsx).
+export const PRERENDER_ROOT_ID = 'prerender-root';
+
 export const injectAppRootContent = (html, content) => {
   const emptyRootPattern = /<div\s+id=(["'])root\1\s*><\/div>/i;
   return emptyRootPattern.test(html)
-    ? html.replace(emptyRootPattern, () => `<div id="root">${content}</div>`)
+    ? html.replace(emptyRootPattern, () => `<div id="${PRERENDER_ROOT_ID}">${content}</div><div id="root"></div>`)
     : html;
 };
 

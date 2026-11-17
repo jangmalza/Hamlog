@@ -8,6 +8,7 @@ import { buildRobotsTxt, injectSearchVerificationMeta } from '../utils/searchVer
 import { hasConfiguredSiteUrl, resolveSiteBaseUrl } from '../config/site.js';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../utils/siteIdentity.js';
 import { toPublicProfile } from '../utils/publicProfile.js';
+import { injectModulePreloads, readClientManifest, resolvePagePreloads } from '../utils/clientManifest.js';
 import {
   buildNotFoundPrerenderContent,
   buildPostPrerenderContent,
@@ -307,6 +308,9 @@ export const injectPostMeta = async (req, res) => {
       ...(hasConfiguredSiteUrl(profile) ? { siteUrl: baseUrl } : {})
     });
 
+    // Start downloading the lazy post page with the entry script, so the client can
+    // take over from the prerendered article sooner.
+    html = injectModulePreloads(html, resolvePagePreloads(await readClientManifest(), 'src/pages/PostPage.tsx'));
     res.send(injectSearchVerificationMeta(html));
   } catch (error) {
     console.error('Meta injection error:', error);

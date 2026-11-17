@@ -304,7 +304,9 @@ app.get('/robots.txt', getRobots);
 // Static Files
 const distDir = path.join(__dirname, '../dist');
 app.use('/uploads', express.static(uploadDir, { setHeaders: setUploadCacheHeaders }));
-app.use(express.static(distDir, { setHeaders: createDistCacheHeaders(distDir) }));
+// dotfiles: 'ignore' also hides dot directories such as dist/.vite (build manifest);
+// the default only skips files whose own name starts with a dot.
+app.use(express.static(distDir, { dotfiles: 'ignore', setHeaders: createDistCacheHeaders(distDir) }));
 
 // Access covers /admin and /admin/*, including every admin API request.
 // Public readers continue to use /api without an Access login challenge.

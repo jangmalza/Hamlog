@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { Link, createBrowserRouter, RouterProvider } from 'react-router-dom';
 import LoadingSpinner from './components/LoadingSpinner';
 import AdminGuard from './pages/AdminGuard';
+import { PrerenderHandoff, RouteFallback } from './components/PrerenderHandoff';
 import HomePage from './pages/HomePage';
 import PublicAnalyticsTracker from './components/analytics/PublicAnalyticsTracker';
 import { useRobots, useSeo } from './hooks/useSeo';
@@ -41,6 +42,13 @@ const LoadingFallback = () => (
   <div className="flex h-screen items-center justify-center bg-[var(--bg)]">
     <LoadingSpinner message="페이지 불러오는 중..." />
   </div>
+);
+
+// Public routes keep showing the server-rendered page until the client page is ready.
+const PublicRouteFallback = () => (
+  <RouteFallback>
+    <LoadingFallback />
+  </RouteFallback>
 );
 
 const NoIndexRoute = ({ children }: { children: ReactNode }) => {
@@ -91,6 +99,7 @@ const router = createBrowserRouter([
     element: (
       <PublicAnalyticsTracker>
         <HomePage />
+        <PrerenderHandoff />
       </PublicAnalyticsTracker>
     )
   },
@@ -98,8 +107,9 @@ const router = createBrowserRouter([
     path: '/posts/:slug',
     element: (
       <PublicAnalyticsTracker>
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense fallback={<PublicRouteFallback />}>
           <PostPage />
+          <PrerenderHandoff />
         </Suspense>
       </PublicAnalyticsTracker>
     )
@@ -108,8 +118,9 @@ const router = createBrowserRouter([
     path: '/p/:slug',
     element: (
       <PublicAnalyticsTracker>
-        <Suspense fallback={<LoadingFallback />}>
+        <Suspense fallback={<PublicRouteFallback />}>
           <PostPage />
+          <PrerenderHandoff />
         </Suspense>
       </PublicAnalyticsTracker>
     )
@@ -128,7 +139,12 @@ const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <NotFoundPage />
+    element: (
+      <>
+        <NotFoundPage />
+        <PrerenderHandoff />
+      </>
+    )
   },
 ]);
 
