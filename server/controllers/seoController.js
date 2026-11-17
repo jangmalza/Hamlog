@@ -7,6 +7,7 @@ import { readSpaIndexHtml, resolveSpaIndexPath } from '../utils/spaIndex.js';
 import { buildRobotsTxt, injectSearchVerificationMeta } from '../utils/searchVerification.js';
 import { hasConfiguredSiteUrl, resolveSiteBaseUrl } from '../config/site.js';
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../utils/siteIdentity.js';
+import { toPublicProfile } from '../utils/publicProfile.js';
 import {
   buildNotFoundPrerenderContent,
   buildPostPrerenderContent,
@@ -299,7 +300,7 @@ export const injectPostMeta = async (req, res) => {
     );
     html = injectJsonData(html, 'hamlog-bootstrap', {
       route: 'post',
-      profile,
+      profile: toPublicProfile(profile),
       posts: toPostSummaries(publicPosts),
       categories,
       post: toPostBootstrap(post, description),

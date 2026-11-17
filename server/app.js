@@ -33,6 +33,7 @@ import { searchRateLimiter } from './middleware/rateLimit.js';
 import { handleBodyParserError } from './middleware/bodyParser.js';
 import { readSpaIndexHtml } from './utils/spaIndex.js';
 import { createDistCacheHeaders, setUploadCacheHeaders } from './utils/staticCache.js';
+import { toPublicProfile } from './utils/publicProfile.js';
 import { hasConfiguredSiteUrl, resolveSiteBaseUrl } from './config/site.js';
 import {
     DEFAULT_SITE_DESCRIPTION,
@@ -191,7 +192,7 @@ const injectHomeSeoMeta = (html, profile, posts = [], categories = []) => {
     );
     nextHtml = injectJsonData(nextHtml, 'hamlog-bootstrap', {
         route: 'home',
-        profile,
+        profile: toPublicProfile(profile),
         posts,
         categories,
         // Lets the client use the same canonical base, including a SITE_URL-only setup.

@@ -222,3 +222,20 @@ test('public health and content stay open; logout clears old auth and hands off 
     assert.equal(response.body.redirectTo, '/cdn-cgi/access/logout');
     assert.match(response.headers['set-cookie'][0], /token=;/);
 });
+
+test('Access admins read the full profile while readers get hidden fields removed', async () => {
+    const headers = { ...trusted, 'Cf-Access-Jwt-Assertion': await signedToken() };
+    await request(app).put('/admin/api/profile').set(headers).send({
+        email: 'access-admin@example.test',
+        location: '비공개 위치',
+        display: { showEmail: false, showLocation: false }
+    }).expect(200);
+
+    const adminProfile = (await request(app).get('/admin/api/profile').set(headers).expect(200)).body.profile;
+    assert.equal(adminProfile.email, 'access-admin@example.test');
+    assert.equal(adminProfile.location, '비공개 위치');
+
+    const readerProfile = (await request(app).get('/api/profile').expect(200)).body.profile;
+    assert.equal(readerProfile.email, '');
+    assert.equal(readerProfile.location, '');
+});
