@@ -14,10 +14,12 @@ export const escapeXml = (value = '') => String(value)
 
 export const wrapCdata = (value = '') => `<![CDATA[${String(value).replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;
 
+// Replacement strings are passed through functions: String#replace would
+// otherwise expand $&, $', $` and $1 found in post or profile text.
 export const replaceHeadTag = (html, pattern, replacement) => (
   pattern.test(html)
-    ? html.replace(pattern, replacement)
-    : html.replace('</head>', `  ${replacement}\n</head>`)
+    ? html.replace(pattern, () => replacement)
+    : html.replace('</head>', () => `  ${replacement}\n</head>`)
 );
 
 export const removeHeadTag = (html, pattern) => html.replace(pattern, '');
@@ -25,7 +27,7 @@ export const removeHeadTag = (html, pattern) => html.replace(pattern, '');
 export const injectAppRootContent = (html, content) => {
   const emptyRootPattern = /<div\s+id=(["'])root\1\s*><\/div>/i;
   return emptyRootPattern.test(html)
-    ? html.replace(emptyRootPattern, `<div id="root">${content}</div>`)
+    ? html.replace(emptyRootPattern, () => `<div id="root">${content}</div>`)
     : html;
 };
 
@@ -39,7 +41,7 @@ const serializeJsonForHtml = (value) => JSON.stringify(value)
 export const injectJsonData = (html, id, value) => {
   const safeId = escapeHtml(id);
   const dataBlock = `<script id="${safeId}" type="application/json">${serializeJsonForHtml(value)}</script>`;
-  return html.replace('</head>', `  ${dataBlock}\n</head>`);
+  return html.replace('</head>', () => `  ${dataBlock}\n</head>`);
 };
 
 export const normalizeBaseUrl = (value, fallback) => {

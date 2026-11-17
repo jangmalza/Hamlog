@@ -1,3 +1,5 @@
+import { replaceHeadTag } from './seoHtml.js';
+
 const SEARCH_VERIFICATION_META = [
   ['GOOGLE_SITE_VERIFICATION', 'google-site-verification'],
   ['NAVER_SITE_VERIFICATION', 'naver-site-verification'],
@@ -10,12 +12,6 @@ const escapeHtml = (value = '') => String(value)
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
-
-const replaceHeadTag = (html, pattern, replacement) => (
-  pattern.test(html)
-    ? html.replace(pattern, replacement)
-    : html.replace('</head>', `  ${replacement}\n</head>`)
-);
 
 const normalizeRobotsValue = (value = '') => String(value)
   .replace(/[\r\n]+/g, ' ')
