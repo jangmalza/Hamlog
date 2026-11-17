@@ -32,6 +32,7 @@ import { createHttpsRedirectMiddleware } from './middleware/httpsRedirect.js';
 import { searchRateLimiter } from './middleware/rateLimit.js';
 import { handleBodyParserError } from './middleware/bodyParser.js';
 import { readSpaIndexHtml } from './utils/spaIndex.js';
+import { createDistCacheHeaders, setUploadCacheHeaders } from './utils/staticCache.js';
 import { resolveSiteBaseUrl } from './config/site.js';
 import {
     DEFAULT_SITE_DESCRIPTION,
@@ -298,8 +299,9 @@ app.get('/', injectHomeAppShell);
 app.get('/robots.txt', getRobots);
 
 // Static Files
-app.use('/uploads', express.static(uploadDir));
-app.use(express.static(path.join(__dirname, '../dist')));
+const distDir = path.join(__dirname, '../dist');
+app.use('/uploads', express.static(uploadDir, { setHeaders: setUploadCacheHeaders }));
+app.use(express.static(distDir, { setHeaders: createDistCacheHeaders(distDir) }));
 
 // Access covers /admin and /admin/*, including every admin API request.
 // Public readers continue to use /api without an Access login challenge.
