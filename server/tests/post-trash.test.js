@@ -45,7 +45,7 @@ test('trash hides posts everywhere while retaining body, comments, views, revisi
   const old = new Date(Date.now() - 48 * 3600000);
   await utimes(path.join(process.env.HAMLOG_UPLOAD_DIR, 'keep.webp'), old, old);
   await writeComments([{ id: 'comment', postId: post.id, author: '독자', content: '댓글', password: 'test', createdAt: new Date().toISOString() }]);
-  await request(app).post(`/api/posts/${post.slug}/view`).expect(200);
+  await request(app).post(`/api/posts/${post.slug}/view`).set('Origin', 'http://hamlog.test').set('Host', 'hamlog.test').expect(200);
   const revisions = await readPostRevisions(post.id);
   await move(cookies, post.id);
   const [deleted] = await trash(cookies);
@@ -60,7 +60,7 @@ test('trash hides posts everywhere while retaining body, comments, views, revisi
   assert.equal((await readPostViews())[post.id], 1);
   assert.deepEqual((await scanUnusedUploads()).unused, []);
   for (const path of [`/api/posts/${post.slug}`, `/posts/${post.slug}`]) await request(app).get(path).expect(404);
-  await request(app).post(`/api/posts/${post.slug}/view`).expect(404);
+  await request(app).post(`/api/posts/${post.slug}/view`).set('Origin', 'http://hamlog.test').set('Host', 'hamlog.test').expect(404);
   await request(app).get(`/api/comments?postId=${post.id}`).expect(404);
   assert.deepEqual((await request(app).get('/api/posts').set('Cookie', cookies)).body.posts, []);
   assert.deepEqual((await request(app).get('/api/search?q=trash-token')).body, []);

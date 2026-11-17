@@ -134,7 +134,7 @@ test('draft, future, malformed tombstone and pending-purge aliases do not redire
       assert.equal(response.headers.location, undefined);
       assert.doesNotMatch(response.text, new RegExp(post.slug));
     }
-    const view = await request(app).post(`/api/posts/${alias}/view`).expect(404);
+    const view = await request(app).post(`/api/posts/${alias}/view`).set('Origin', 'http://hamlog.test').set('Host', 'hamlog.test').expect(404);
     assert.doesNotMatch(view.text, new RegExp(post.slug));
   }
 });

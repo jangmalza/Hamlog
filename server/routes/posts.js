@@ -29,7 +29,7 @@ router.get('/trash/list', authenticateToken, getTrash);
 router.post('/:id/trash/restore', authenticateToken, requireTrustedOrigin, ...publicBodyParsers, restoreTrashedPost);
 router.delete('/:id/permanent', authenticateToken, requireTrustedOrigin, ...publicBodyParsers, permanentlyDeletePost);
 router.post('/', authenticateToken, requireTrustedOrigin, ...adminContentBodyParsers, createPost);
-router.post('/:slug/view', viewRateLimiter, ...publicBodyParsers, recordPostView);
+router.post('/:slug/view', viewRateLimiter, requireTrustedOrigin, ...publicBodyParsers, recordPostView);
 router.get('/:id/revisions', authenticateToken, getPostRevisions);
 router.get('/:id/revisions/:revisionId', authenticateToken, getPostRevision);
 router.post('/:id/revisions/:revisionId/restore', authenticateToken, requireTrustedOrigin, ...publicBodyParsers, restorePostRevision);

@@ -12,7 +12,9 @@ router.get('/moderation', authenticateToken, listCommentsForModeration);
 router.patch('/moderation/:id', authenticateToken, requireTrustedOrigin, ...publicBodyParsers, setCommentHidden);
 router.delete('/moderation/:id', authenticateToken, requireTrustedOrigin, ...publicBodyParsers, deleteCommentAsAdmin);
 router.get('/', getComments);
-router.post('/', commentRateLimiter, ...publicBodyParsers, createComment); // Public
-router.delete('/:id', commentRateLimiter, ...publicBodyParsers, deleteComment); // Public (password protected)
+// Public writes still require the site's own origin, so other sites cannot make
+// their visitors' browsers post comments or delete attempts.
+router.post('/', commentRateLimiter, requireTrustedOrigin, ...publicBodyParsers, createComment); // Public
+router.delete('/:id', commentRateLimiter, requireTrustedOrigin, ...publicBodyParsers, deleteComment); // Public (password protected)
 
 export const commentRouter = router;

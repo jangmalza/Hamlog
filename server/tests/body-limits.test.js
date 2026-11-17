@@ -23,8 +23,8 @@ test('public JSON endpoints reject editor-sized request bodies', async () => {
         .send({ password: oversizedValue });
     assertPayloadTooLarge(loginResponse);
 
-    const commentResponse = await request(app)
-        .post('/api/comments')
+    const commentResponse = await withTrustedOrigin(request(app)
+        .post('/api/comments'))
         .send({ padding: oversizedValue });
     assertPayloadTooLarge(commentResponse);
 
@@ -33,8 +33,8 @@ test('public JSON endpoints reject editor-sized request bodies', async () => {
         .send({ path: '/', eventId: 'event-body-limit-0001', padding: oversizedValue });
     assertPayloadTooLarge(analyticsResponse);
 
-    const viewResponse = await request(app)
-        .post('/api/posts/any-post/view')
+    const viewResponse = await withTrustedOrigin(request(app)
+        .post('/api/posts/any-post/view'))
         .send({ padding: oversizedValue });
     assertPayloadTooLarge(viewResponse);
 });

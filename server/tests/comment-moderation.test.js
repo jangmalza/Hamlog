@@ -72,8 +72,8 @@ test('admin deletion needs a current version but no author password; public pass
     await remove({ expectedVersion: 'old' }).expect(409);
     await remove({ expectedVersion: comment.moderation.version }).expect(204);
     await remove({ expectedVersion: comment.moderation.version }).expect(404);
-    await request(app).delete('/api/comments/one').send({ password: 'wrong' }).expect(403);
-    await request(app).delete('/api/comments/one').send({ password: 'author-password' }).expect(200);
+    await trusted(request(app).delete('/api/comments/one')).send({ password: 'wrong' }).expect(403);
+    await trusted(request(app).delete('/api/comments/one')).send({ password: 'author-password' }).expect(200);
     assert.deepEqual(await readComments(), []);
 });
 

@@ -194,7 +194,7 @@ test('Access comment moderation hides public content and keeps origin/version ch
         title: 'Access comment post', slug: 'access-comment-post', status: 'published',
         contentHtml: '<p>공개 본문</p>'
     }).expect(201);
-    const comment = (await request(app).post('/api/comments').send({
+    const comment = (await request(app).post('/api/comments').set('Origin', 'http://hamlog.test').set('Host', 'hamlog.test').send({
         postId: created.body.id, author: '독자', password: 'author-password', content: '관리할 댓글'
     }).expect(201)).body.comment;
     const listing = await request(app).get('/admin/api/comments/moderation').set(headers).expect(200);

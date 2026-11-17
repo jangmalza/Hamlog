@@ -239,7 +239,7 @@ test('authenticated content routes persist posts and categories', async () => {
         createdAt: new Date().toISOString()
     }]);
 
-    const viewResponse = await request(app).post('/api/posts/ci-hardening-updated/view');
+    const viewResponse = await withTrustedOrigin(request(app).post('/api/posts/ci-hardening-updated/view'));
     assert.equal(viewResponse.status, 200);
     assert.equal((await readPostViews())[createPostResponse.body.id], 1);
 
@@ -865,8 +865,8 @@ test('comments respect password verification on deletion', async () => {
         }
     ]);
 
-    const createCommentResponse = await request(app)
-        .post('/api/comments')
+    const createCommentResponse = await withTrustedOrigin(request(app)
+        .post('/api/comments'))
         .send({
             postId: 'post-1',
             author: 'Reader',
@@ -886,14 +886,14 @@ test('comments respect password verification on deletion', async () => {
     assert.equal(storedComments.length, 1);
     assert.notEqual(storedComments[0].password, 'secret-password');
 
-    const failedDeleteResponse = await request(app)
-        .delete(`/api/comments/${createCommentResponse.body.comment.id}`)
+    const failedDeleteResponse = await withTrustedOrigin(request(app)
+        .delete(`/api/comments/${createCommentResponse.body.comment.id}`))
         .send({ password: 'wrong-password' });
 
     assert.equal(failedDeleteResponse.status, 403);
 
-    const successfulDeleteResponse = await request(app)
-        .delete(`/api/comments/${createCommentResponse.body.comment.id}`)
+    const successfulDeleteResponse = await withTrustedOrigin(request(app)
+        .delete(`/api/comments/${createCommentResponse.body.comment.id}`))
         .send({ password: 'secret-password' });
 
     assert.equal(successfulDeleteResponse.status, 200);
@@ -918,8 +918,8 @@ test('comments normalize public input and reject oversized fields', async () => 
         }
     ]);
 
-    const normalizedCommentResponse = await request(app)
-        .post('/api/comments')
+    const normalizedCommentResponse = await withTrustedOrigin(request(app)
+        .post('/api/comments'))
         .send({
             postId: 'post-comment-limits',
             author: ' Reader    Name ',
@@ -931,14 +931,14 @@ test('comments normalize public input and reject oversized fields', async () => 
     assert.equal(normalizedCommentResponse.body.comment.author, 'Reader Name');
     assert.equal(normalizedCommentResponse.body.comment.content, 'Hello\n\nWorld');
 
-    const deletedNormalizedCommentResponse = await request(app)
-        .delete(`/api/comments/${normalizedCommentResponse.body.comment.id}`)
+    const deletedNormalizedCommentResponse = await withTrustedOrigin(request(app)
+        .delete(`/api/comments/${normalizedCommentResponse.body.comment.id}`))
         .send({ password: 'secret-password' });
 
     assert.equal(deletedNormalizedCommentResponse.status, 200);
 
-    const oversizedAuthorResponse = await request(app)
-        .post('/api/comments')
+    const oversizedAuthorResponse = await withTrustedOrigin(request(app)
+        .post('/api/comments'))
         .send({
             postId: 'post-comment-limits',
             author: 'a'.repeat(COMMENT_LIMITS.author + 1),
@@ -949,8 +949,8 @@ test('comments normalize public input and reject oversized fields', async () => 
     assert.equal(oversizedAuthorResponse.status, 400);
     assert.match(oversizedAuthorResponse.body.message, /이름/);
 
-    const oversizedContentResponse = await request(app)
-        .post('/api/comments')
+    const oversizedContentResponse = await withTrustedOrigin(request(app)
+        .post('/api/comments'))
         .send({
             postId: 'post-comment-limits',
             author: 'Reader',
@@ -997,8 +997,8 @@ test('comments only attach to public visible posts', async () => {
     ]);
 
     for (const postId of ['post-draft-comments', 'post-future-comments', 'post-missing-comments']) {
-        const createCommentResponse = await request(app)
-            .post('/api/comments')
+        const createCommentResponse = await withTrustedOrigin(request(app)
+            .post('/api/comments'))
             .send({
                 postId,
                 author: 'Reader',
@@ -1166,18 +1166,18 @@ test('public post views increment only for visible posts', async () => {
         }
     ]);
 
-    const firstViewResponse = await request(app).post('/api/posts/public-post/view');
+    const firstViewResponse = await withTrustedOrigin(request(app).post('/api/posts/public-post/view'));
     assert.equal(firstViewResponse.status, 200);
     assert.deepEqual(firstViewResponse.body, { slug: 'public-post', views: 3 });
 
-    const secondViewResponse = await request(app).post('/api/posts/public-post/view');
+    const secondViewResponse = await withTrustedOrigin(request(app).post('/api/posts/public-post/view'));
     assert.equal(secondViewResponse.status, 200);
     assert.deepEqual(secondViewResponse.body, { slug: 'public-post', views: 4 });
 
-    const hiddenScheduledResponse = await request(app).post('/api/posts/scheduled-hidden-post/view');
+    const hiddenScheduledResponse = await withTrustedOrigin(request(app).post('/api/posts/scheduled-hidden-post/view'));
     assert.equal(hiddenScheduledResponse.status, 404);
 
-    const draftResponse = await request(app).post('/api/posts/draft-post/view');
+    const draftResponse = await withTrustedOrigin(request(app).post('/api/posts/draft-post/view'));
     assert.equal(draftResponse.status, 404);
 
     const storedPosts = await readPosts();
