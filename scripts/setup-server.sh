@@ -8,16 +8,30 @@ set -e
 APP_NAME="hamlog"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_IMAGE_OVERRIDE="${IMAGE_NAME:-}"
-REPOSITORY_NAME="${HAMLOG_GITHUB_REPOSITORY:-${GITHUB_REPOSITORY:-hyeonwo-o/Hamlog}}"
-NORMALIZED_REPOSITORY_NAME="$(printf '%s' "$REPOSITORY_NAME" | tr '[:upper:]' '[:lower:]')"
+IMAGE_NAME="${HAMLOG_IMAGE:-${LEGACY_IMAGE_OVERRIDE}}"
 
-if [[ ! "$NORMALIZED_REPOSITORY_NAME" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
-    echo "Invalid GitHub repository name: $REPOSITORY_NAME" >&2
-    exit 1
+if [ -z "$IMAGE_NAME" ]; then
+    # Never fall back to a hard-coded owner: a renamed or deleted GitHub account can
+    # be registered again by someone else, whose image would then run with our secrets.
+    REPOSITORY_NAME="${HAMLOG_GITHUB_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+    if [ -z "$REPOSITORY_NAME" ]; then
+        ORIGIN_URL="$(git -C "$SCRIPT_DIR/.." remote get-url origin 2>/dev/null || true)"
+        if [[ "$ORIGIN_URL" =~ github\.com[:/]([^/]+/[^/]+)$ ]]; then
+            REPOSITORY_NAME="${BASH_REMATCH[1]%.git}"
+        fi
+    fi
+    if [ -z "$REPOSITORY_NAME" ]; then
+        echo "Set HAMLOG_IMAGE or HAMLOG_GITHUB_REPOSITORY (owner/repo) to choose the image to deploy." >&2
+        exit 1
+    fi
+
+    NORMALIZED_REPOSITORY_NAME="$(printf '%s' "$REPOSITORY_NAME" | tr '[:upper:]' '[:lower:]')"
+    if [[ ! "$NORMALIZED_REPOSITORY_NAME" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
+        echo "Invalid GitHub repository name: $REPOSITORY_NAME" >&2
+        exit 1
+    fi
+    IMAGE_NAME="ghcr.io/${NORMALIZED_REPOSITORY_NAME}:latest"
 fi
-
-DEFAULT_IMAGE_NAME="ghcr.io/${NORMALIZED_REPOSITORY_NAME}:latest"
-IMAGE_NAME="${HAMLOG_IMAGE:-${LEGACY_IMAGE_OVERRIDE:-$DEFAULT_IMAGE_NAME}}"
 
 if [ -z "$IMAGE_NAME" ] || [[ "$IMAGE_NAME" =~ [[:space:]] ]]; then
     echo "Invalid container image reference: $IMAGE_NAME" >&2

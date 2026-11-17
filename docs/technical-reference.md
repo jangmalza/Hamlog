@@ -289,6 +289,8 @@ docker compose up -d --build
 Compose는 앱 실행 전에 마운트 권한을 제한적으로 준비합니다. 호스트 기본 그룹 ID가 1000이 아니면
 `.env`의 `HAMLOG_DATA_GID`를 `id -g` 결과로 설정합니다.
 
+`bash scripts/setup-server.sh`는 `HAMLOG_IMAGE`(또는 `HAMLOG_GITHUB_REPOSITORY=owner/repo`)로 받을 이미지를
+정하고, 둘 다 없으면 서버에 받아 둔 저장소의 `origin` 주소에서 찾습니다. 찾지 못하면 임의의 이미지를 쓰지 않고 멈춥니다.
 `bash scripts/setup-server.sh`로 수동 재배포할 때도 기존 `hamlog` 컨테이너가 있으면 중단 전에
 데이터를 검증하여 백업합니다. 기본 백업 위치는 `$HOME/hamlog-backups`, 보관 기간은 30일이며
 `HAMLOG_BACKUP_DIR`, `BACKUP_RETENTION_DAYS`, `HAMLOG_BACKUP_HOOK`으로 기존 백업 정책을 그대로
@@ -302,6 +304,12 @@ Compose는 앱 실행 전에 마운트 권한을 제한적으로 준비합니다
 `.github/workflows/docker-deploy.yml`은 GitHub 호스티드 러너에서만 실행됩니다. 운영 서버에는
 GitHub runner가 없으며, 저장소의 어떤 워크플로나 PR도 운영 서버에서 명령을 실행할 수 없습니다.
 - `main` push 시 테스트·E2E·Docker 스모크 테스트를 통과한 이미지만 GHCR에 `latest`와 `sha-<커밋>`으로 업로드
+- 작업은 `test` → `image` → `publish` → `verify-release` 순서로 나뉩니다. 저장소·npm 코드를 실행하는
+  `test`와 `image`는 읽기 권한만 가지며, GHCR 쓰기 권한(`packages: write`)은 저장소 코드를 실행하지 않고
+  커밋 SHA로 고정한 액션만 쓰는 `publish`에만 있습니다. 의존성 패키지가 오염되어도 운영 이미지를 바꿀 수 없습니다.
+- `main`으로 가는 PR은 `docker-deploy.yml`이, `develop`의 push·PR은 `ci.yml`이 같은 검사를 한 번씩 실행
+- CI의 E2E는 한 번까지 재시도하고(재시도로 통과하면 flaky로 표시), 실패하면 trace·스크린샷·HTML 보고서를
+  아티팩트로 올립니다
 - 이미지 업로드 후 공개 헬스 API가 새 커밋 버전을 보고할 때까지 기다려 배포 반영을 확인(최대 약 23분)
 - GitHub 호스티드 러너가 15분마다 홈·헬스 API를 외부에서 점검
 

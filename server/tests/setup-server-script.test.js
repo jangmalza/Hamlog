@@ -57,7 +57,9 @@ test('setup script is valid Bash and arms recovery before container cutover', as
   assert.match(source, /handle_deploy_signal HUP 129/);
   assert.match(source, /handle_deploy_signal INT 130/);
   assert.match(source, /trap - EXIT\n\s+trap '' TERM HUP INT/);
-  assert.match(source, /hyeonwo-o\/Hamlog/);
+  // No hard-coded owner: a deleted account name could be re-registered by someone else.
+  assert.doesNotMatch(source, /hyeonwo-o/);
+  assert.match(source, /remote get-url origin/);
   assert.match(source, /HAMLOG_IMAGE:-\$\{LEGACY_IMAGE_OVERRIDE/);
   assert.match(source, /BACKUP_RETENTION_DAYS="\$\{BACKUP_RETENTION_DAYS:-30\}"/);
   assert.match(source, /HAMLOG_CONTAINER_NAME="\$APP_NAME"/);
@@ -286,6 +288,30 @@ esac
     const calls = await readFile(dockerLog, 'utf8');
     assert.doesNotMatch(calls, /^stop hamlog$/m);
     assert.doesNotMatch(calls, /^rename hamlog /m);
+  } finally {
+    await rm(testRoot, { recursive: true, force: true });
+  }
+});
+
+test('setup script refuses to guess an image without a configured repository', async () => {
+  const testRoot = await mkdtemp(path.join(tmpdir(), 'hamlog-setup-image-'));
+  try {
+    // A copy outside any git checkout has no origin remote to read the repository from.
+    const isolatedScript = path.join(testRoot, 'scripts', 'setup-server.sh');
+    await mkdir(path.dirname(isolatedScript), { recursive: true });
+    await writeFile(isolatedScript, await readFile(setupScriptPath, 'utf8'));
+    const env = { ...process.env, HOME: testRoot, GIT_CEILING_DIRECTORIES: testRoot };
+    for (const name of ['HAMLOG_IMAGE', 'IMAGE_NAME', 'HAMLOG_GITHUB_REPOSITORY', 'GITHUB_REPOSITORY']) {
+      delete env[name];
+    }
+
+    const result = await execFileAsync('bash', [isolatedScript], { env }).then(
+      () => ({ code: 0, stderr: '' }),
+      (error) => ({ code: error.code, stderr: error.stderr })
+    );
+
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /Set HAMLOG_IMAGE or HAMLOG_GITHUB_REPOSITORY/);
   } finally {
     await rm(testRoot, { recursive: true, force: true });
   }
