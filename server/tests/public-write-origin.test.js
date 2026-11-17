@@ -9,12 +9,14 @@ const SITE_ORIGIN = 'http://hamlog.test';
 const fromSite = (builder) => builder.set('Origin', SITE_ORIGIN).set('Host', new URL(SITE_ORIGIN).host);
 const fromOtherSite = (builder) => builder.set('Origin', 'https://evil.example').set('Host', new URL(SITE_ORIGIN).host);
 
-const commentCount = async () => (await request(app).get('/api/comments?postId=origin-post').expect(200)).body.comments.length;
+// View counts live in their own store that tests do not reset, so each run uses a new post.
+const POST_ID = `origin-post-${process.pid}-${Date.now()}`;
+const commentCount = async () => (await request(app).get(`/api/comments?postId=${POST_ID}`).expect(200)).body.comments.length;
 
 test('public comment and view writes only accept the site origin', async () => {
     await writePosts([{
-        id: 'origin-post',
-        slug: 'origin-post',
+        id: POST_ID,
+        slug: POST_ID,
         title: '출처 확인 글',
         summary: '요약',
         category: '보안',
@@ -26,7 +28,7 @@ test('public comment and view writes only accept the site origin', async () => {
     }]);
     await writeComments([]);
 
-    const comment = { postId: 'origin-post', author: '독자', password: 'reader-pass', content: '댓글' };
+    const comment = { postId: POST_ID, author: '독자', password: 'reader-pass', content: '댓글' };
 
     // A cross-site HTML form needs no CORS preflight, so the origin check is what stops it.
     await fromOtherSite(request(app).post('/api/comments'))
@@ -43,8 +45,8 @@ test('public comment and view writes only accept the site origin', async () => {
     await fromOtherSite(request(app).delete(`/api/comments/${created.id}`)).send({ password: 'reader-pass' }).expect(403);
     assert.equal(await commentCount(), 1);
 
-    await fromOtherSite(request(app).post('/api/posts/origin-post/view')).expect(403);
-    const view = await fromSite(request(app).post('/api/posts/origin-post/view')).expect(200);
+    await fromOtherSite(request(app).post(`/api/posts/${POST_ID}/view`)).expect(403);
+    const view = await fromSite(request(app).post(`/api/posts/${POST_ID}/view`)).expect(200);
     assert.equal(view.body.views, 1, 'only the same-site view was counted');
 
     await fromSite(request(app).delete(`/api/comments/${created.id}`)).send({ password: 'reader-pass' }).expect(200);

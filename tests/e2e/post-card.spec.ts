@@ -38,7 +38,10 @@ test('게시글 카드는 저장된 조회수를 오른쪽 하단에 표시한�
     postId = created.id;
 
     for (let index = 0; index < 2; index += 1) {
-      const viewResponse = await request.post(`${backendOrigin}/api/posts/${slug}/view`);
+      // View counting only accepts the site's own origin, like a reader's browser sends.
+      const viewResponse = await request.post(`${backendOrigin}/api/posts/${slug}/view`, {
+        headers: { Origin: backendOrigin }
+      });
       expect(viewResponse.status()).toBe(200);
     }
 
