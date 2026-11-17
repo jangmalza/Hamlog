@@ -76,24 +76,33 @@ test('keyboard readers can skip to the content and use the comment dialog', asyn
   }
 });
 
-test('cards that replace the server-rendered home are not animated in again', async ({ page }) => {
-  await page.goto(`${backendOrigin}/`);
-  await expect(page.locator('[data-prerendered]')).toHaveCount(0);
-  const cards = page.locator('main#main-content a[href^="/posts/"]');
-  await expect(cards.first()).toBeVisible();
-  await expect(page.locator('main#main-content .animate-slide-up')).toHaveCount(0);
+// Each test publishes its own post so the home page always has a card to check,
+// whatever other tests or a fresh CI data directory left behind.
+test('cards that replace the server-rendered home are not animated in again', async ({ page, request }) => {
+  const fixture = await createPostWithComment(request);
+  try {
+    await page.goto(`${backendOrigin}/`);
+    await expect(page.locator('[data-prerendered]')).toHaveCount(0);
+    const card = page.locator(`main#main-content a[href="/posts/${fixture.slug}"]`).first();
+    await expect(card).toBeVisible();
+    await expect(page.locator('main#main-content .animate-slide-up')).toHaveCount(0);
+  } finally {
+    await fixture.cleanup();
+  }
 });
 
-test('card entrance animations respect reduced motion', async ({ browser }) => {
+test('card entrance animations respect reduced motion', async ({ browser, request }) => {
+  const fixture = await createPostWithComment(request);
   const context = await browser.newContext({ reducedMotion: 'reduce' });
   const page = await context.newPage();
   try {
     // The development server has no server-rendered page, so cards use the animation class.
     await page.goto('/');
-    const animated = page.locator('main#main-content .animate-slide-up').first();
+    const animated = page.locator(`main#main-content a.animate-slide-up[href="/posts/${fixture.slug}"]`).first();
     await expect(animated).toBeVisible();
     await expect(animated).toHaveCSS('animation-name', 'none');
   } finally {
     await context.close();
+    await fixture.cleanup();
   }
 });
